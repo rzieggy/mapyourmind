@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' data: blob:; connect-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'"
+    />
+    <title>mapyourmind</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="home">
+      <header class="home-header">
+        <div class="brand">
+          <img class="brand-icon" src="assets/AppIcon.png" alt="" />mapyourmind
+        </div>
+        <span class="local-badge"><i></i> Only on this Mac</span>
+      </header>
+      <main class="library">
+        <div class="library-bar">
+          <div class="tabs">
+            <button id="documentsTab" class="tab active">Documents</button
+            ><button id="trashTab" class="tab">
+              Trash <span id="trashCount"></span>
+            </button>
+          </div>
+          <div class="library-actions"><button id="importMindmap" class="secondary"><span data-icon="import"></span>Import mind map</button>
+          <button id="newDoc" class="primary">
+            <span data-icon="plus"></span>New document
+          </button></div>
+        </div>
+        <div id="docList"></div>
+        <div class="library-footer">
+          <button id="homeHelp" class="text-button">Keyboard shortcuts</button>
+        </div>
+      </main>
+    </div>
+    <div id="workspace" hidden>
+      <header class="editor-header">
+        <div class="header-left">
+          <button id="toggleDocuments" title="Show documents" aria-label="Show documents" aria-expanded="false" aria-controls="documentSidebar" data-icon="sidebar"></button>
+          <span class="divider"></span
+          ><button id="docTitle" class="document-title"></button
+          ><span id="saveStatus" class="save-status">Saved on this Mac</span>
+        </div>
+        <div class="header-right">
+          <button
+            id="undo"
+            title="Undo (⌘Z)"
+            aria-label="Undo"
+            data-icon="undo"
+          ></button
+          ><button
+            id="redo"
+            title="Redo (⌘⇧Z)"
+            aria-label="Redo"
+            data-icon="redo"
+          ></button
+          ><span class="divider"></span
+          ><button id="importMindmapCanvas">Import</button>
+          <button id="exportOpen" class="export-button">
+            <span data-icon="export"></span>Export PNG
+          </button>
+        </div>
+      </header>
+      <aside id="documentSidebar" aria-label="Documents">
+        <div class="document-sidebar-heading">Documents</div>
+        <button id="sidebarNewDocument"><span data-icon="plus"></span>New document</button>
+        <nav id="sidebarDocumentList" aria-label="Local documents"></nav>
+        <div id="sidebarTrash">
+          <button id="sidebarTrashToggle" aria-expanded="false" aria-controls="sidebarTrashList"><span data-icon="trash"></span><span class="sidebar-trash-label">Trash</span><span id="sidebarTrashCount"></span></button>
+          <nav id="sidebarTrashList" aria-label="Documents in Trash" hidden></nav>
+        </div>
+        <div id="sidebarResizer" role="separator" aria-orientation="vertical" aria-label="Resize the documents sidebar" tabindex="0"></div>
+      </aside>
+      <div id="stage">
+        <canvas
+          id="canvas"
+          tabindex="0"
+          aria-label="Diagram canvas. Choose a tool to start drawing."
+        ></canvas>
+        <div class="canvas-tag"><span id="nodeCount">0 elements</span></div>
+        <div
+          id="modeSwitch"
+          class="mode-switch"
+          role="group"
+          aria-label="Creation mode"
+        >
+          <button data-mode="flowchart" aria-pressed="true">Flowchart</button
+          ><button data-mode="mindmap" aria-pressed="false">Mind Map</button>
+        </div>
+        <div id="layoutControl" class="layout-control" hidden>
+          <button id="tidyLayout" title="Align and arrange mind maps">
+            Arrange
+          </button>
+        </div>
+        <nav id="toolbar" aria-label="Canvas tools">
+          <button data-tool="select" title="Select (V)" class="active">
+            <span data-icon="select"></span><small>V</small></button
+          ><button data-tool="hand" title="Pan (H)">
+            <span data-icon="hand"></span><small>H</small></button
+          ><span class="divider"></span
+          ><button data-tool="shape" title="Rectangle (R)">
+            <span data-icon="shape"></span><small>R</small></button
+          ><button data-tool="mind" title="Mind-map root (M)">
+            <span data-icon="mind"></span><small>M</small></button
+          ><button data-tool="text" title="Text (T)">
+            <span data-icon="text"></span><small>T</small></button
+          ><button data-tool="connector" title="Connector (C)">
+            <span data-icon="connector"></span><small>C</small>
+          </button>
+          <button id="addSticker" title="Stickers" aria-label="Stickers" aria-expanded="false" aria-controls="stickerDropdown">☺</button>
+        </nav>
+        <section id="stickerDropdown" aria-label="Sticker picker" hidden>
+          <div class="sticker-dropdown-heading"><span>Stickers</span><button id="closeStickerDropdown" aria-label="Close stickers" title="Close stickers">×</button></div>
+          <div id="stickerOptions" class="sticker-picker"></div>
+        </section>
+        <div id="shapePicker" class="popover" hidden></div>
+        <aside id="inspector" hidden>
+          <div class="eyebrow" id="selectionLabel">ELEMENT STYLE</div>
+          <label
+            >Shape<select id="shapeStyle">
+              <option value="process">Rectangle</option>
+                  <option value="circle">Circle</option>
+              <option value="decision">Decision</option>
+              <option value="pill">Start / end</option>
+              <option value="io">Input / output</option>
+              <option value="note">Note</option>
+            </select></label
+          ><div id="fillSection">
+            <label>Fill</label>
+            <div class="palette-row"><div id="fillColors" class="swatches"></div></div>
+            <label
+              >Fill style<select id="fillStyle">
+                <option value="hachure">Hachure</option>
+                <option value="cross-hatch">Cross-hatch</option>
+                <option value="solid">Solid</option>
+              </select></label
+            ><label
+              >Edges<select id="edges">
+                <option value="sharp">Sharp</option>
+                <option value="round">Round</option>
+              </select></label
+            >
+          </div>
+          <div id="highlightSection">
+            <label>Highlight color</label>
+            <div class="palette-row"><div id="highlightColors" class="swatches"></div></div>
+          </div>
+          <label>Stroke<input id="strokeColor" type="color" /></label>
+          <button id="transparentStroke" class="wide-button">No stroke</button
+          ><label>Text color<input id="textColor" type="color" /></label
+          ><label
+            >Stroke width<select id="strokeWidth">
+              <option value="1">Thin</option>
+              <option value="1.8">Medium</option>
+              <option value="3">Thick</option>
+            </select></label
+          ><label>Stroke style<select id="strokeStyle"><option value="solid">Solid ━</option><option value="dashed">Dashed ┄</option><option value="dotted">Dotted ┈</option></select></label><label>Sloppiness<select id="sloppiness"><option value="0">Clean</option><option value="1">Hand-drawn</option><option value="2">Sketchy</option><option value="legacy" disabled>Original</option></select></label><label>Font family<select id="fontFamily"><option value="Excalifont">✎ Handwritten</option><option value="Google Sans">A · Google Sans</option><option value="Arial">Arial</option><option value="Comic Shanns">&lt;/&gt; Comic Shanns</option></select></label><p id="fontFallback" role="status" hidden>Google Sans unavailable; displaying Arial.</p><label
+            >Font size<select id="fontSize">
+              <option value="14">Extra small</option>
+              <option value="19">Small</option>
+              <option value="25">Medium</option>
+              <option value="34">Large</option>
+              <option value="44">Heading</option>
+            </select></label
+          >
+          <div id="textAlignment">
+            <label>Text alignment</label>
+            <div
+              class="text-align-buttons"
+              role="group"
+              aria-label="Text alignment"
+            >
+              <button
+                data-align="left"
+                title="Align text left"
+                aria-label="Align text left"
+                data-icon="left"
+              ></button
+              ><button
+                data-align="center"
+                title="Center text"
+                aria-label="Center text"
+                data-icon="center"
+              ></button
+              ><button
+                data-align="right"
+                title="Align text right"
+                aria-label="Align text right"
+                data-icon="right"
+              ></button>
+            </div>
+          </div>
+          <div id="richFormat">
+            <label>Text style</label>
+            <div class="text-align-buttons">
+              <button data-format="bold" title="Bold (⌘B)"><b>B</b></button
+              ><button data-format="underline" title="Underline (⌘U)">
+                <u>U</u></button
+              ><button data-format="highlight" title="Highlight (⌘H)">
+                Highlight
+              </button>
+            </div>
+          </div>
+          <label
+            >Connector<select id="edgeStyle">
+              <option value="elbow">Elbow</option>
+              <option value="straight">Straight</option>
+              <option value="curved">Curved</option>
+            </select></label
+          ><label class="check-label"
+            ><input type="checkbox" id="edgeArrow" />Arrowhead</label
+          >
+          <div id="alignSection">
+            <label>Object alignment</label>
+            <div id="alignTools" class="align-tools"></div>
+          </div>
+          <div id="layerTools" class="layer-tools">
+            <label>Layer order</label>
+            <div role="group" aria-label="Layer order">
+              <button data-layer="front">To front</button>
+              <button data-layer="forward">Forward</button>
+              <button data-layer="backward">Backward</button>
+              <button data-layer="back">To back</button>
+            </div>
+          </div>
+          <div id="defaultSection" class="default-tools">
+            <button id="setDefault" class="wide-button">Set as default</button>
+            <button id="openDefaults" class="text-button">All defaults ⌘,</button>
+          </div>
+          <button id="nodeNotesBtn" class="wide-button">Comment ⌘⌥C</button
+          ><button id="groupBtn" class="wide-button">Group ⌘G</button
+          ><button id="duplicateBtn" class="wide-button">Duplicate ⌘D</button
+          ><button id="deleteBtn" class="wide-button danger">
+            Delete elements
+          </button>
+        </aside>
+        <aside
+          id="notesPanel"
+          class="notes-panel"
+          hidden
+          aria-label="Node notes"
+        >
+          <div class="notes-header">
+            <div>
+              <span class="eyebrow">NODE NOTES</span>
+              <h3 id="notesNodeTitle"></h3>
+            </div>
+            <button
+              id="closeNotes"
+              title="Close notes"
+              aria-label="Close notes"
+            >
+              ×
+            </button>
+          </div>
+          <form id="newNoteForm" class="note-compose">
+            <textarea
+              id="newNoteText"
+              placeholder="Add a note…"
+              aria-label="New note"
+              rows="3"
+            ></textarea>
+            <div>
+              <span>Enter to send · Shift Enter for a new line</span
+              ><button type="submit" class="primary">Add note</button>
+            </div>
+          </form>
+          <div id="notesThreads"></div>
+        </aside>
+        <div id="emptyHint">
+          <span class="sketch-title">Start with a single idea.</span>
+          <p id="modeHint">Choose a rectangle above, then click anywhere.</p>
+          <span>Tab to grow · Space to pan</span>
+        </div>
+        <div
+          id="textEditor"
+          contenteditable="true"
+          role="textbox"
+          aria-label="Edit node text"
+          aria-multiline="true"
+          spellcheck="false"
+          hidden
+        ></div>
+        <div class="bottom-hint" id="contextHint">
+          Hover a shape to connect · Space to pan
+        </div>
+        <div class="zoom-control">
+          <button id="zoomOut" aria-label="Zoom out" data-icon="minus"></button
+          ><button id="zoomValue" title="Reset to 100%">100%</button
+          ><button id="zoomIn" aria-label="Zoom in" data-icon="plus"></button
+          ><span class="divider"></span
+          ><button
+            id="fit"
+            title="Fit diagram (⌘0)"
+            aria-label="Fit diagram"
+            data-icon="fit"
+          ></button>
+        </div>
+        <button
+          id="help"
+          class="help-button"
+          title="Keyboard shortcuts"
+          aria-label="Keyboard shortcuts"
+          data-icon="help"
+        ></button>
+      </div>
+    </div>
+    <div id="nodeContextMenu" role="menu" hidden></div>
+    <div id="toast" role="status" hidden></div>
+    <dialog id="modal"><div id="modalBody"></div></dialog>
+    <dialog id="commandMenu" aria-labelledby="commandTitle"><div class="command-header"><h2 id="commandTitle">Search commands</h2><button id="closeCommands" aria-label="Close commands">×</button></div><input id="commandSearch" type="text" placeholder="Search tools, actions, and settings…" aria-label="Search commands" role="combobox" aria-controls="commandResults" aria-expanded="true" autocomplete="off"><div id="commandResults" role="listbox" aria-label="Commands"></div></dialog>
+    <script src="vendor/rough.js"></script>
+    <script src="icons.js"></script>
+    <script src="model.js"></script>
+    <script src="document-format.js"></script>
+    <script src="app.js"></script>
+    <script src="notes.js"></script>
+    <script src="rich-text.js"></script>
+    <script src="features.js"></script>
+    <script src="import-format.js"></script>
+    <script src="import.js"></script>
+    <script src="navigation.js"></script>
+    <script src="notebook.js"></script>
+    <script src="defaults.js"></script>
+    <script src="commands.js"></script>
+  </body>
+</html>

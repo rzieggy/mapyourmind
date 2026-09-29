@@ -1,0 +1,46 @@
+{
+  "css": "https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap",
+  "upstream": "https://github.com/googlefonts/googlesans",
+  "files": [
+    {
+      "file": "GoogleSans-italic-400.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua9rENHsxJlGDuGo1OIlL3L2JB874GPhFI9_IqmuRqGpjeaLi42kO8QvnQOs5beU3yksanMY0Ehpyw.ttf",
+      "sha256": "de3e020df66db298fcd9b8e2c1e504431753df90568c7ec803b1f72f97c8c1b0"
+    },
+    {
+      "file": "GoogleSans-italic-500.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua9rENHsxJlGDuGo1OIlL3L2JB874GPhFI9_IqmuRqGpjeaLi42kO8QvnQOs5beU3yksanMY3Mhpyw.ttf",
+      "sha256": "2f39543533930d702078177d68832b14298f21d42794f5b122ab8343faf9faa2"
+    },
+    {
+      "file": "GoogleSans-italic-600.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua9rENHsxJlGDuGo1OIlL3L2JB874GPhFI9_IqmuRqGpjeaLi42kO8QvnQOs5beU3yksanMY58mpyw.ttf",
+      "sha256": "c4dd008c977f2bcc212bbb2ff380612faf76e69c18c595182804065d206c26e4"
+    },
+    {
+      "file": "GoogleSans-italic-700.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua9rENHsxJlGDuGo1OIlL3L2JB874GPhFI9_IqmuRqGpjeaLi42kO8QvnQOs5beU3yksanMY6Ympyw.ttf",
+      "sha256": "16130e358a414be0584eaac001582afd8af106df3a76ed98ed74daa48f02e958"
+    },
+    {
+      "file": "GoogleSans-normal-400.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua_rENHsxJlGDuGo1OIlJfC6l_24rlCK1Yo_Iqcsih3SAyH6cAwhX9RFD48TE63OOYKtrwEIKli.ttf",
+      "sha256": "1db8fe3048d1b15519999c1b0372285ded006bf49e109455df1a09e42876ec64"
+    },
+    {
+      "file": "GoogleSans-normal-500.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua_rENHsxJlGDuGo1OIlJfC6l_24rlCK1Yo_Iqcsih3SAyH6cAwhX9RFD48TE63OOYKtrw2IKli.ttf",
+      "sha256": "e9156f50951740b525f8e6d110e0be344214cb6d5fce1e76cd3e828a604997e9"
+    },
+    {
+      "file": "GoogleSans-normal-600.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua_rENHsxJlGDuGo1OIlJfC6l_24rlCK1Yo_Iqcsih3SAyH6cAwhX9RFD48TE63OOYKtrzaJ6li.ttf",
+      "sha256": "3f9e55d5a74e96e8d6c047a2b8ecc0993fb7ad65986aa8a6a6284715a8a9e909"
+    },
+    {
+      "file": "GoogleSans-normal-700.ttf",
+      "url": "https://fonts.gstatic.com/s/googlesans/v70/4Ua_rENHsxJlGDuGo1OIlJfC6l_24rlCK1Yo_Iqcsih3SAyH6cAwhX9RFD48TE63OOYKtrzjJ6li.ttf",
+      "sha256": "e7a3baef8d5e96974a25d537ca253c5e4f25ed3bb0d9167d1f4773ea11d74f71"
+    }
+  ]
+}
