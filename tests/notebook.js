@@ -71,7 +71,7 @@ assert((await native("clipboardRead")).text==="Keep this clipboard","Command Shi
 await window.flushSave();
 const disk=(await native("load")).state;
 assert(disk.schema===3&&disk.documents.find(x=>x.id===note.id).note.html.includes("Hello world"),"Notes persist in versioned local store");
-const flow=create("Diagram styles","flowchart");
+const flow=create("Diagram styles","board");
 assert(!isNotebook()&&notebook.hidden&&$("exportOpen").textContent.includes("PNG"),"Diagram UI and PNG return after switching");
 const n=M.node("flow",100,100,"process","A longer title that wraps across multiple lines in different fonts");
 d().nodes.push(n);selected=new Set([n.id]);autoSize(n);inspect();

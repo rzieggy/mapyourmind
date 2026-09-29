@@ -50,7 +50,7 @@ function documentRow(doc, trashed) {
   button.dataset.documentId = doc.id;
   button.title = doc.title;
   button.innerHTML = icon(
-    trashed ? "trash" : doc.mode === "notes" ? "note" : "document",
+    trashed ? "trash" : doc.mode === "notes" ? "note" : "board",
   );
   const name = document.createElement("span");
   name.textContent = doc.title;

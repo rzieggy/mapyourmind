@@ -1491,3 +1491,450 @@ button.secondary:hover { background:#efeff3; }
 #commandResults button { display:flex; justify-content:space-between; width:100%; padding:10px; text-align:left; border-radius:5px; }
 #commandResults button[aria-selected="true"] { background:#e9e9ed; outline:1px solid #777; outline-offset:-1px; }
 #commandResults kbd { color:#666; margin-left:12px; }
+
+/* ---------------------------------------------------------------------------
+   Phase 1 shell (design: "mapyourmind shell redesign" canvas, Spec board).
+   Dark navy sidebar, dark slate tool rail on the left of the canvas, a thin
+   header whose title opens the document menu, and one bottom-right cluster for
+   history, zoom and help. Blue is the one UI accent; the pastel-purple
+   mind-map root is diagram content and keeps its colour.
+   --------------------------------------------------------------------------- */
+:root {
+  --accent: #2474d0;
+  --accent-hover: #1d63b3;
+  --accent-soft: #eaf2fc;
+  --side-bg: #15233b;
+  --side-hover: #1f3050;
+  --side-active: #23416c;
+  --side-text: #d8e2f0;
+  --side-muted: #8fa3c0;
+  --side-line: #22324d;
+  --rail-bg: #253245;
+  --rail-hover: #324157;
+  --rail-icon: #d3dae6;
+  --rail-line: #3a4860;
+  --header-height: 48px;
+}
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.primary,
+.export-button {
+  background: var(--accent);
+  color: #fff;
+}
+.primary:hover,
+.export-button:hover {
+  background: var(--accent-hover);
+}
+
+/* Header */
+.editor-header {
+  height: var(--header-height);
+  padding: 0 12px;
+}
+#workspace.documents-open .editor-header {
+  margin-left: var(--sidebar-width, 236px);
+}
+.header-left {
+  gap: 6px;
+}
+.header-left > button:first-child {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: inherit;
+  color: #6b6b76;
+  border-radius: 8px;
+}
+.header-left > button:first-child svg {
+  width: 18px;
+  height: 18px;
+}
+#toggleDocuments[aria-expanded="true"] {
+  background: transparent;
+}
+.editor-header .divider {
+  height: 18px;
+  margin: 0 4px;
+}
+.document-title {
+  height: 30px;
+  padding: 0 8px;
+  gap: 6px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1b1b1f;
+}
+/* The chevron is drawn here, not as a child, so code that sets the title text keeps it. */
+.document-title::after {
+  content: "";
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin: -3px 2px 0 2px;
+  border-right: 1.6px solid #8a8a94;
+  border-bottom: 1.6px solid #8a8a94;
+  transform: rotate(45deg);
+}
+.document-title[aria-expanded="true"] {
+  background: #f1f1f4;
+}
+.title-input {
+  height: 30px;
+  width: 260px;
+  padding: 0 8px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1b1b1f;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.save-status {
+  font-size: 12px;
+  color: #8a8a94;
+  margin-left: 4px;
+}
+.header-right {
+  gap: 6px;
+}
+#importMindmapCanvas,
+#workspace:not(.is-notebook) #exportOpen {
+  display: none;
+}
+.icon-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  color: #6b6b76;
+}
+.icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+#stage {
+  height: calc(100vh - var(--header-height));
+}
+
+/* Document menu (title ▾) */
+#docMenu {
+  position: fixed;
+  z-index: 60;
+  width: 244px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e6e7eb;
+  border-radius: 11px;
+  box-shadow: 0 12px 32px rgba(20, 24, 36, 0.16), 0 2px 6px rgba(20, 24, 36, 0.08);
+}
+#docMenu button {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  gap: 10px;
+  justify-content: flex-start;
+  font-size: 13px;
+  color: #1b1b1f;
+  border-radius: 7px;
+}
+#docMenu button svg {
+  width: 16px;
+  height: 16px;
+  color: #6b6b76;
+}
+#docMenu button:hover {
+  background: #f1f1f4;
+}
+#docMenu button.danger,
+#docMenu button.danger svg {
+  color: #b42318;
+}
+.menu-separator {
+  height: 1px;
+  margin: 5px 4px;
+  background: #e6e7eb;
+}
+.menu-info {
+  padding: 6px 10px 4px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #8a8a94;
+}
+
+/* Sidebar */
+#documentSidebar {
+  top: 0;
+  z-index: 20;
+  padding: 10px 8px 8px;
+  gap: 2px;
+  background: var(--side-bg);
+  border-right: 0;
+  color: var(--side-text);
+}
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 2px 0 8px;
+  margin-bottom: 8px;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.brand-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+}
+.brand-mark svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+}
+#sidebarNewDocument {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--side-muted);
+}
+#sidebarNewDocument:hover {
+  background: var(--side-hover);
+  color: #fff;
+}
+#sidebarNewDocument svg {
+  width: 15px;
+  height: 15px;
+}
+#sidebarDocumentList,
+#sidebarTrashList {
+  gap: 1px;
+}
+.sidebar-document,
+#sidebarTrashToggle {
+  height: 28px;
+  padding: 0 8px;
+  gap: 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--side-text);
+}
+.sidebar-document svg,
+#sidebarTrashToggle svg {
+  width: 14px;
+  height: 14px;
+  color: var(--side-muted);
+}
+#sidebarTrashToggle > span:first-child {
+  flex: 0 0 14px;
+}
+.sidebar-document:hover,
+#sidebarTrashToggle:hover {
+  background: var(--side-hover);
+  color: #fff;
+}
+.sidebar-document[aria-current="page"] {
+  background: var(--side-active);
+  color: #fff;
+  font-weight: 500;
+}
+.sidebar-document[aria-current="page"] svg {
+  color: #fff;
+}
+.sidebar-document.dragging {
+  background: var(--side-active);
+}
+.sidebar-document.trashed,
+#sidebarTrashCount,
+.sidebar-empty {
+  color: var(--side-muted);
+}
+#sidebarTrash {
+  border-top-color: var(--side-line);
+  padding-top: 6px;
+}
+#sidebarResizer:hover,
+#sidebarResizer.dragging {
+  background: #2a3d5e;
+}
+#documentSidebar button:disabled {
+  opacity: 0.5;
+}
+
+/* Tool rail */
+#toolbar {
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  background: var(--rail-bg);
+  border: 0;
+  border-radius: 13px;
+  box-shadow: 0 8px 22px rgba(20, 24, 36, 0.22), 0 1px 3px rgba(20, 24, 36, 0.18);
+  z-index: 11;
+}
+#toolbar button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 9px;
+  color: var(--rail-icon);
+  font-size: inherit;
+  position: relative;
+}
+#toolbar button svg {
+  width: 19px;
+  height: 19px;
+}
+#toolbar button:hover {
+  background: var(--rail-hover);
+  color: #fff;
+}
+#toolbar button.active,
+#toolbar button.active:hover {
+  background: var(--accent);
+  color: #fff;
+}
+#toolbar button.rail-soon,
+#toolbar button.rail-soon:hover {
+  opacity: 1;
+  background: transparent;
+  color: #6f7e96;
+  cursor: default;
+}
+#toolbar .divider {
+  width: 26px;
+  height: 1px;
+  margin: 4px auto;
+  background: var(--rail-line);
+}
+#toolbar button:focus-visible {
+  outline: 2px solid #7fb2ee;
+  outline-offset: 2px;
+}
+/* Rail tooltips: name and key, after a short hover. Disabled buttons get no
+   pointer events in WebKit, so the coming-soon tip shows on keyboard focus only. */
+#toolbar button[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--side-bg);
+  color: #fff;
+  font: 500 12.5px "Google Sans", sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(20, 24, 36, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s 0s;
+  z-index: 30;
+}
+#toolbar button[data-key]::after {
+  content: attr(data-tip) "   " attr(data-key);
+}
+#toolbar button[data-tip]:hover::after,
+#toolbar button[data-tip]:focus-visible::after {
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+#toolbar button.active[data-tip]::after {
+  transition-delay: 0s;
+}
+
+/* Bottom-right controls: history, zoom, help */
+#canvasControls {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 11;
+  display: flex;
+  gap: 8px;
+}
+#inspector:not([hidden]) ~ #canvasControls,
+#notesPanel:not([hidden]) ~ #canvasControls {
+  right: 256px;
+}
+.control-group,
+.control-group.zoom-control {
+  position: static;
+  transform: none;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 2px;
+  background: #fff;
+  border: 1px solid #e6e7eb;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(20, 24, 36, 0.07);
+}
+.control-group button,
+.control-group .help-button {
+  position: static;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: #6b6b76;
+}
+.control-group button svg {
+  width: 17px;
+  height: 17px;
+}
+.control-group #zoomValue {
+  width: 46px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1b1b1f;
+}
+.control-group .divider {
+  height: 18px;
+  margin: 0 2px;
+}
+/* Notes hides the canvas controls except history, which Notes shares. */
+#workspace.is-notebook #stage > #canvasControls {
+  display: flex !important;
+}
+#workspace.is-notebook #canvasControls .zoom-control,
+#workspace.is-notebook #canvasControls .help-control {
+  display: none;
+}
+.bottom-hint {
+  left: 16px;
+  bottom: 26px;
+}
+
+/* New document: Board or Notes */
+.mode-choices {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.mode-card[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.mode-card[aria-pressed="true"] svg {
+  color: var(--accent);
+}

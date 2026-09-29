@@ -12,6 +12,18 @@
 
 State at import: gates C0, C1, A done; B implemented and its suite passes, but its gate is not signed off; C, D, E not started.
 
+## Editor shell redesign (design canvas "mapyourmind shell redesign", Spec board)
+Phases, in order: 1 shell layout · 2 style panel + context bar + right-click menu · 3 Whimsical-style connectors
+(8px gap, filled head, every sloppiness) · 4 ⌘F find, full Settings, Export PDF, folders · 5 states polish, then PRD B gate and C/D/E.
+- [x] Phase 1 (2026-09-29): dark navy sidebar (logo + New document, no section label), dark slate tool rail on the
+  left with tooltips (Line and Template disabled), thin header (title ▾ document menu, double-click renames in place,
+  Settings gear), history/zoom/help cluster bottom-right, blue #2474D0 accent incl. canvas selection. Flowchart and
+  Mind Map merged into Board: new documents store mode "board"; stored "flowchart"/"mindmap" are read as Board and never
+  rewritten. Arrange moved to ⌘K and the mind-node right-click menu; Import joined ⌘K. Notes keeps undo/redo in the
+  cluster and its Export PDF button in the header. Double-click on empty canvas still creates free text (unchanged;
+  the design Spec's "flowchart shape" line is wrong). Tests updated for the removed mode switch; new navigation
+  assertions cover the document menu, in-place rename and the gear.
+
 ---
 
 # Recovery implementation: installed version 1.28 baseline

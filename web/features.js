@@ -155,7 +155,8 @@ canvas.addEventListener("contextmenu", (e) => {
     (!n.attachmentTo ? '<button role="menuitem" data-context="placeholder">Add placeholder</button>' : '') +
     (M.children(d(), n.id).length
       ? `<button role="menuitem" data-context="collapse">${n.collapsed ? "Expand" : "Collapse"} branch</button>`
-      : "");
+      : "") +
+    (n.kind === "mind" ? '<button role="menuitem" data-context="arrange">Arrange mind maps</button>' : "");
   placeContextMenu(e);
   for (const button of contextMenu.querySelectorAll("[data-direction]"))
     button.onclick = () => {
@@ -168,6 +169,8 @@ canvas.addEventListener("contextmenu", (e) => {
     closeContextMenu();
     openNotes(n.id);
   };
+  const arrange = contextMenu.querySelector('[data-context="arrange"]');
+  if (arrange) arrange.onclick = () => { closeContextMenu(); arrangeMindMaps(); };
   const collapse = contextMenu.querySelector('[data-context="collapse"]');
   if (collapse)
     collapse.onclick = () => {
@@ -415,8 +418,9 @@ function insertSticker(text) {
 function positionStickerDropdown() {
   if ($("stickerDropdown").hidden || $("workspace").hidden) return;
   const stage = $("stage").getBoundingClientRect(), button = $("addSticker").getBoundingClientRect();
-  $("stickerDropdown").style.left = Math.max(8, Math.min(button.right - stage.left - 232, stage.width - 240)) + "px";
-  $("stickerDropdown").style.top = button.bottom - stage.top + 12 + "px";
+  // The rail sits on the left, so the dropdown opens to its right, level with the button.
+  $("stickerDropdown").style.left = Math.min(button.right - stage.left + 10, stage.width - 240) + "px";
+  $("stickerDropdown").style.top = Math.max(8, Math.min(button.top - stage.top - 10, stage.height - 300)) + "px";
 }
 function toggleStickerDropdown(show = $("stickerDropdown").hidden) {
   if (editing) commitEdit();

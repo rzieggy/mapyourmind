@@ -655,7 +655,6 @@ current.canvas = M.clone(snapshot);
 selected.clear();
 await window.flushSave();
 const v12Snapshot = M.clone(d());
-setMode("mindmap");
 create("mind", -1200, -1000, "Move me");
 const movingRoot = d().nodes.at(-1);
 key(canvas, "Tab");
@@ -773,12 +772,10 @@ assert(
 setTreeDirection(movingRoot.id, "vertical");
 undo();
 undo();
-setMode("mindmap");
 setTool("connector");
 assert(
-  current.mode === "mindmap" &&
-    !$("toolbar").querySelector('[data-tool="connector"]').hidden,
-  "Manual connector tool remains available inside Mind Map mode",
+  ["shape", "mind", "connector"].every((tool) => !$("toolbar").querySelector(`[data-tool="${tool}"]`).hidden),
+  "A Board keeps the shape, mind-map and connector tools on the rail together",
 );
 const sink = M.node("mind", -200, -1500, "Shared outcome");
 d().nodes.push(sink);
@@ -836,13 +833,18 @@ selected.clear();
 await window.flushSave();
 const primaryId = current.id;
 newDoc();
-$("modalBody").querySelector('[data-new-mode="mindmap"]').click();
+assert(
+  [...$("modalBody").querySelectorAll("[data-new-mode]")].map((b) => b.dataset.newMode).join() === "board,notes",
+  "New document offers Board and Notes only",
+);
+$("modalBody").querySelector('[data-new-mode="board"]').click();
 $("nameInput").value = "Mode test";
 $("nameSubmit").click();
 assert(
-  current.mode === "mindmap" &&
-    $("toolbar").querySelector('[data-tool="shape"]').hidden,
-  "New document mode picker opens the selected toolset",
+  current.mode === "board" &&
+    !$("toolbar").querySelector('[data-tool="shape"]').hidden &&
+    !$("toolbar").querySelector('[data-tool="mind"]').hidden,
+  "A new Board opens with both node tools",
 );
 const fixtureId = current.id;
 await goHome();
@@ -867,14 +869,17 @@ assert(
   "mapyourmind branding and English interface",
 );
 assert(
-  current.mode === "flowchart" || current.mode === "mindmap",
-  "Creation mode is saved on the document",
+  ["board", "flowchart", "mindmap"].includes(current.mode),
+  "Legacy flowchart and mind-map documents open as Boards with their stored mode intact",
 );
-const unchanged = JSON.stringify(d());
-setMode("mindmap");
+const unchanged = JSON.stringify(d()),
+  storedMode = current.mode;
+setTool("mind");
+setTool("shape");
+setTool("select");
 assert(
-  JSON.stringify(d()) === unchanged,
-  "Switching mode preserves existing elements",
+  JSON.stringify(d()) === unchanged && current.mode === storedMode,
+  "Switching node tools preserves existing elements and never rewrites the document mode",
 );
 create("mind", -200, 500, "New thought");
 const newRoot = d().nodes.at(-1);
@@ -912,7 +917,6 @@ assert(
     sketchShape(n).sets.some((s) => s.type === "path"),
   "Solid fill and rough outline use independent paths",
 );
-setMode("flowchart");
 create("shape", -350, -400, "Source");
 const a = d().nodes.at(-1);
 create("shape", 50, -400, "Target");
@@ -1538,7 +1542,7 @@ current.canvas = revisionSnapshot;
 selected.clear();
 await window.flushSave();
 // v1.3 interactions: tree alignment, collapse, comments, rich text, image paste.
-const v13Before=M.clone(d());closeNotes();setMode("mindmap");
+const v13Before=M.clone(d());closeNotes();
 create("mind",-4000,-2000,"Plan");
 const planRoot=d().nodes.at(-1), branches=[];
 for(let i=0;i<4;i++) {const child=M.extend(d(),planRoot.id,true);child.text="Branch "+(i+1);autoSize(child);branches.push(child);}
@@ -1638,7 +1642,7 @@ const demoRoot=d().nodes.find(n=>n.id===planRoot.id);demoRoot.collapsed=false;de
 d().nodes.find(n=>n.id===branches[1].id).collapsed=true;
 const demoText=d().nodes.find(n=>n.id===formatted.id);demoText.x=0;demoText.y=-20;demoText.w=280;autoSize(demoText);
 const demoImage=d().nodes.find(n=>n.id===pastedImage.id);demoImage.x=0;demoImage.y=370;
-M.layout(d());selected=new Set([demoText.id]);inspect();setMode("mindmap");fit();paint();$("toast").hidden=true;await wait(120);await native("snapshot",{name:"features"});
+M.layout(d());selected=new Set([demoText.id]);inspect();fit();paint();$("toast").hidden=true;await wait(120);await native("snapshot",{name:"features"});
 beginEdit(demoText);richEditor.setSelectionRange(0,5);paint();await wait(80);await native("snapshot",{name:"rich"});commitEdit();
 current.canvas=v13Before;selected.clear();closeNotes();await window.flushSave();
 
@@ -1701,7 +1705,7 @@ const legacyLink=M.connect(d(),resizeRoot.id,resizeChild.id,{fromSide:"top-right
 current.canvas=v14Before;selected.clear();closeNotes();await window.flushSave();
 
 // Circle shapes share text editing, connectors, resizing, clipboard and storage.
-const circleBefore=M.clone(d());closeNotes();current.canvas=M.blank();setMode("mindmap");setTool("select");zoom(1);
+const circleBefore=M.clone(d());closeNotes();current.canvas=M.blank();setTool("select");zoom(1);
 let circleRoot=M.node("mind",100,100,"process","Central idea");d().nodes.push(circleRoot);selected=new Set([circleRoot.id]);inspect();
 $("shapeStyle").value="circle";$("shapeStyle").dispatchEvent(new Event("change"));
 assert(circleRoot.shape==="circle"&&circleRoot.w===circleRoot.h,"Inspector converts mind-map roots to true circles");
@@ -1776,7 +1780,6 @@ if (previewNode) {
     "Updated with the latest feedback.",
     previewNode.notes[0].id,
   );
-  setMode("mindmap");
   openNotes(previewNode.id);
   await window.flushSave();
   paint();await wait(200);await native("snapshot",{name:"comments"});

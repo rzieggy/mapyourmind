@@ -162,9 +162,9 @@ function showModal(html) {
 }
 function askName(title, value, callback, chooseMode = false) {
   showModal(
-    `<h2>${esc(title)}</h2><p>Document name</p>${chooseMode ? `<div class="mode-choices"><button class="mode-card" data-new-mode="flowchart" aria-pressed="true">${icon("shape")}<strong>Flowchart</strong><small>Connect steps. Map a process.</small></button><button class="mode-card" data-new-mode="mindmap" aria-pressed="false">${icon("mind")}<strong>Mind Map</strong><small>Branch out. Explore an idea.</small></button><button class="mode-card" data-new-mode="notes" aria-pressed="false">${icon("note")}<strong>Notes</strong><small>Write, plan, and keep a checklist.</small></button></div>` : ""}<input type="text" id="nameInput" maxlength="160" value="${esc(value)}"><div class="actions"><button data-close>Cancel</button><button id="nameSubmit" class="primary">Save</button></div>`,
+    `<h2>${esc(title)}</h2><p>Document name</p>${chooseMode ? `<div class="mode-choices"><button class="mode-card" data-new-mode="board" aria-pressed="true">${icon("board")}<strong>Board</strong><small>Flowcharts and mind maps on one canvas.</small></button><button class="mode-card" data-new-mode="notes" aria-pressed="false">${icon("note")}<strong>Notes</strong><small>Write, plan, and keep a checklist.</small></button></div>` : ""}<input type="text" id="nameInput" maxlength="160" value="${esc(value)}"><div class="actions"><button data-close>Cancel</button><button id="nameSubmit" class="primary">Save</button></div>`,
   );
-  let newMode = "flowchart";
+  let newMode = "board";
   for (const b of $("modalBody").querySelectorAll("[data-new-mode]"))
     b.onclick = () => {
       newMode = b.dataset.newMode;
@@ -324,11 +324,7 @@ function openDoc(id) {
   notesNodeId = null;
   $("notesPanel").hidden = true;
   // Stored geometry is authoritative. Only the targeted tree-arrow migration may change presentation.
-  current.mode ||=
-    current.canvas.nodes.some((n) => n.kind === "mind") &&
-    !current.canvas.nodes.some((n) => n.kind === "flow")
-      ? "mindmap"
-      : "flowchart";
+  current.mode ||= "board";
   history = new M.History();
   selected.clear();
   editing = null;
@@ -366,33 +362,117 @@ $("trashTab").onclick = () => {
   trash = true;
   renderHome();
 };
-$("docTitle").onclick = () =>
-  askName("Rename", current.title, (title) => {
-    current.title = uniqueName(title, current.id);
-    $("docTitle").textContent = current.title;
-    if (isNotebook()) $("noteHeading").textContent = current.title;
-    changed();
-    renderDocumentSidebar();
-  });
-function syncMode() {
-  for (const b of $("modeSwitch").querySelectorAll("button"))
-    b.setAttribute("aria-pressed", String(b.dataset.mode === current.mode));
-  $("toolbar").querySelector('[data-tool="shape"]').hidden =
-    current.mode === "mindmap";
-  $("toolbar").querySelector('[data-tool="mind"]').hidden =
-    current.mode !== "mindmap";
-  $("toolbar").querySelector('[data-tool="connector"]').hidden = false;
-  $("layoutControl").hidden = current.mode !== "mindmap";
-  $("modeHint").textContent =
-    current.mode === "mindmap"
-      ? "Choose the mind-map tool, then click to plant an idea."
-      : "Choose a rectangle above, then click anywhere.";
+function renameCurrent(title) {
+  current.title = uniqueName(title, current.id);
+  $("docTitle").textContent = current.title;
+  if (isNotebook()) $("noteHeading").textContent = current.title;
+  changed();
+  renderDocumentSidebar();
 }
-$("tidyLayout").onclick = () => {
+// A single click waits briefly so that a double-click can rename without the
+// menu flashing open first.
+let titleClickTimer = null;
+$("docTitle").onclick = () => {
+  clearTimeout(titleClickTimer);
+  titleClickTimer = setTimeout(() => toggleDocMenu(), 220);
+};
+$("docTitle").ondblclick = () => {
+  clearTimeout(titleClickTimer);
+  closeDocMenu();
+  renameTitleInPlace();
+};
+function renameTitleInPlace() {
+  if (!current) return;
+  const title = $("docTitle"),
+    input = document.createElement("input");
+  input.className = "title-input";
+  input.value = current.title;
+  input.maxLength = 160;
+  input.setAttribute("aria-label", "Document name");
+  title.hidden = true;
+  title.after(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    const name = input.value.trim();
+    input.remove();
+    title.hidden = false;
+    if (save && name && name !== current.title) renameCurrent(name);
+    if (isNotebook()) $("noteBody").focus(); else canvas.focus();
+  };
+  input.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") finish(true);
+    if (e.key === "Escape") finish(false);
+  };
+  input.onblur = () => finish(true);
+}
+function closeDocMenu() {
+  $("docMenu").hidden = true;
+  $("docTitle").setAttribute("aria-expanded", "false");
+}
+function toggleDocMenu() {
+  if (!current) return;
+  if (!$("docMenu").hidden) return closeDocMenu();
+  const notebook = isNotebook(),
+    count = notebook ? "Notes" : d().nodes.length + (d().nodes.length === 1 ? " element" : " elements"),
+    edited = new Date(current.updated || Date.now()).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }),
+    item = (action, iconName, label, extra = "") =>
+      `<button role="menuitem" data-doc-action="${action}"${extra}>${icon(iconName)}<span>${label}</span></button>`;
+  const menu = $("docMenu");
+  menu.innerHTML =
+    item("rename", "pencil", "Rename") +
+    item("duplicate", "copy", "Duplicate") +
+    '<div class="menu-separator"></div>' +
+    (notebook ? "" : item("import", "import", "Import mind map…")) +
+    item("export", "export", notebook ? "Export PDF…" : "Export PNG…") +
+    '<div class="menu-separator"></div>' +
+    item("trash", "trash", "Move to Trash", ' class="danger"') +
+    '<div class="menu-separator"></div>' +
+    `<div class="menu-info">${esc(count)}<br>Edited ${esc(edited)}</div>`;
+  const box = $("docTitle").getBoundingClientRect();
+  menu.style.left = box.left + "px";
+  menu.style.top = box.bottom + 6 + "px";
+  menu.hidden = false;
+  $("docTitle").setAttribute("aria-expanded", "true");
+  for (const button of menu.querySelectorAll("[data-doc-action]"))
+    button.onclick = async () => {
+      closeDocMenu();
+      const action = button.dataset.docAction;
+      try {
+        if (action === "rename") renameTitleInPlace();
+        else if (action === "import") await chooseMindmapImport();
+        else if (action === "export") exportDialog();
+        else await docAction(action, current.id);
+      } catch (error) {
+        toast(error.message);
+      }
+    };
+  menu.querySelector("button").focus();
+}
+document.addEventListener("pointerdown", (e) => {
+  if (!$("docMenu").hidden && !$("docMenu").contains(e.target) && e.target !== $("docTitle")) closeDocMenu();
+}, true);
+$("docMenu").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    e.stopPropagation();
+    closeDocMenu();
+    $("docTitle").focus();
+  }
+});
+$("openSettings").onclick = () => window.appCommand("settings");
+// Both node tools are always on the rail, so a Board has no creation mode to show.
+function syncMode() {
+  $("modeHint").textContent = "Pick a tool on the left, then click the canvas.";
+}
+function arrangeMindMaps() {
   mutate(() => M.tidy(d()));
   fit();
   toast("Mind maps arranged. Manual positions reset.");
-};
+}
 // Direction is a property of a tree's source node, set from its context menu.
 function setTreeDirection(id, direction) {
   if (editing) commitEdit();
@@ -411,17 +491,6 @@ function boundsOnScreen(b) {
     (b.y + b.h) * view.z + view.y <= canvas.clientHeight - margin
   );
 }
-function setMode(mode) {
-  if (!current || isNotebook()) return;
-  if (editing) commitEdit();
-  cancelDrag();
-  current.mode = mode;
-  syncMode();
-  setTool("select");
-  changed();
-}
-for (const b of $("modeSwitch").querySelectorAll("button"))
-  b.onclick = () => setMode(b.dataset.mode);
 function cancelDrag() {
   if (drag?.before) current.canvas = drag.before;
   drag = null;
@@ -433,14 +502,6 @@ function cancelDrag() {
 }
 function setTool(t) {
   if (editing) commitEdit();
-  if (current && ["shape", "mind"].includes(t)) {
-    const mode = t === "mind" ? "mindmap" : "flowchart";
-    if (current.mode !== mode) {
-      current.mode = mode;
-      syncMode();
-      changed();
-    }
-  }
   hoveredNode = null;
   hoveredPort = null;
   tool = t;
@@ -494,7 +555,7 @@ function showPicker(x, y, source = null) {
       if (quick) {
         const before = M.clone(d());
         const n = M.node(
-          current.mode === "mindmap" ? "mind" : "flow",
+          "flow",
           quick.x,
           quick.y,
           shape,
@@ -510,12 +571,15 @@ function showPicker(x, y, source = null) {
       render();
     };
 }
-for (const b of $("toolbar").querySelectorAll("button"))
+for (const b of $("toolbar").querySelectorAll("button[data-tool]"))
   b.onclick = () => {
     const t = b.dataset.tool;
     if (t === "shape") {
       setTool(t);
-      showPicker(canvas.clientWidth / 2 - 65, 83);
+      // The picker opens beside the rail, level with the Shape button.
+      const button = b.getBoundingClientRect(),
+        stage = canvas.getBoundingClientRect();
+      showPicker(button.right - stage.left + 10, button.top - stage.top - 6);
     } else setTool(t);
   };
 function resize() {
@@ -1303,7 +1367,8 @@ function paint() {
     if (selected.has(e.id)) drawEdgeHandles(e);
   drawNoteBadges();
   ctx.lineWidth = 1.1 / view.z;
-  ctx.strokeStyle = "#777780";
+  // Selection uses the one UI accent, blue (Phase 1 shell).
+  ctx.strokeStyle = "#2474d0";
   for (const n of d().nodes.filter((n) => selected.has(n.id))) {
     // The node being edited shows nothing but its own shape and a caret.
     if (editing?.id === n.id) continue;
@@ -1331,8 +1396,8 @@ function paint() {
   }
 
   if (drag?.type === "marquee") {
-    ctx.fillStyle = "#77777715";
-    ctx.strokeStyle = "#80808a";
+    ctx.fillStyle = "#2474d014";
+    ctx.strokeStyle = "#2474d0";
     const b = rect(drag.start, drag.now);
     ctx.fillRect(b.x, b.y, b.w, b.h);
     ctx.strokeRect(b.x, b.y, b.w, b.h);
@@ -1431,7 +1496,6 @@ function paint() {
   }
   ctx.setLineDash([]);
   $("emptyHint").hidden = d().nodes.length > 0;
-  $("nodeCount").textContent = d().nodes.length + " elements";
   $("zoomValue").textContent = Math.round(view.z * 100) + "%";
   $("undo").disabled = !history.past.length;
   $("redo").disabled = !history.future.length;

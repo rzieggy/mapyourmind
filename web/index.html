@@ -42,32 +42,22 @@
         <div class="header-left">
           <button id="toggleDocuments" title="Show documents" aria-label="Show documents" aria-expanded="false" aria-controls="documentSidebar" data-icon="sidebar"></button>
           <span class="divider"></span
-          ><button id="docTitle" class="document-title"></button
+          ><button id="docTitle" class="document-title" aria-haspopup="menu" aria-expanded="false" title="Click for the document menu · double-click to rename"></button
           ><span id="saveStatus" class="save-status">Saved on this Mac</span>
         </div>
         <div class="header-right">
-          <button
-            id="undo"
-            title="Undo (⌘Z)"
-            aria-label="Undo"
-            data-icon="undo"
-          ></button
-          ><button
-            id="redo"
-            title="Redo (⌘⇧Z)"
-            aria-label="Redo"
-            data-icon="redo"
-          ></button
-          ><span class="divider"></span
-          ><button id="importMindmapCanvas">Import</button>
+          <button id="importMindmapCanvas" hidden>Import</button>
           <button id="exportOpen" class="export-button">
             <span data-icon="export"></span>Export PNG
           </button>
+          <button id="openSettings" class="icon-button" title="Settings (⌘,)" aria-label="Settings" data-icon="gear"></button>
         </div>
       </header>
       <aside id="documentSidebar" aria-label="Documents">
-        <div class="document-sidebar-heading">Documents</div>
-        <button id="sidebarNewDocument"><span data-icon="plus"></span>New document</button>
+        <div class="sidebar-top">
+          <span class="sidebar-brand"><span class="brand-mark" data-icon="mind"></span>mapyourmind</span>
+          <button id="sidebarNewDocument" title="New document (⌘N)" aria-label="New document"><span data-icon="plus"></span></button>
+        </div>
         <nav id="sidebarDocumentList" aria-label="Local documents"></nav>
         <div id="sidebarTrash">
           <button id="sidebarTrashToggle" aria-expanded="false" aria-controls="sidebarTrashList"><span data-icon="trash"></span><span class="sidebar-trash-label">Trash</span><span id="sidebarTrashCount"></span></button>
@@ -81,37 +71,21 @@
           tabindex="0"
           aria-label="Diagram canvas. Choose a tool to start drawing."
         ></canvas>
-        <div class="canvas-tag"><span id="nodeCount">0 elements</span></div>
-        <div
-          id="modeSwitch"
-          class="mode-switch"
-          role="group"
-          aria-label="Creation mode"
-        >
-          <button data-mode="flowchart" aria-pressed="true">Flowchart</button
-          ><button data-mode="mindmap" aria-pressed="false">Mind Map</button>
-        </div>
-        <div id="layoutControl" class="layout-control" hidden>
-          <button id="tidyLayout" title="Align and arrange mind maps">
-            Arrange
-          </button>
-        </div>
+        
+        
+        
         <nav id="toolbar" aria-label="Canvas tools">
-          <button data-tool="select" title="Select (V)" class="active">
-            <span data-icon="select"></span><small>V</small></button
-          ><button data-tool="hand" title="Pan (H)">
-            <span data-icon="hand"></span><small>H</small></button
+          <button data-tool="select" aria-label="Select (V)" data-tip="Select" data-key="V" class="active"><span data-icon="select"></span></button
+          ><button data-tool="hand" aria-label="Pan (H)" data-tip="Pan" data-key="H"><span data-icon="hand"></span></button
           ><span class="divider"></span
-          ><button data-tool="shape" title="Rectangle (R)">
-            <span data-icon="shape"></span><small>R</small></button
-          ><button data-tool="mind" title="Mind-map root (M)">
-            <span data-icon="mind"></span><small>M</small></button
-          ><button data-tool="text" title="Text (T)">
-            <span data-icon="text"></span><small>T</small></button
-          ><button data-tool="connector" title="Connector (C)">
-            <span data-icon="connector"></span><small>C</small>
-          </button>
-          <button id="addSticker" title="Stickers" aria-label="Stickers" aria-expanded="false" aria-controls="stickerDropdown">☺</button>
+          ><button data-tool="shape" aria-label="Shape (R)" data-tip="Shape" data-key="R"><span data-icon="shape"></span></button
+          ><button data-tool="mind" aria-label="Mind map (M)" data-tip="Mind map" data-key="M"><span data-icon="mind"></span></button
+          ><button data-tool="text" aria-label="Text (T)" data-tip="Text" data-key="T"><span data-icon="text"></span></button
+          ><button data-tool="connector" aria-label="Connector (C)" data-tip="Connector" data-key="C"><span data-icon="connector"></span></button
+          ><button id="addSticker" aria-label="Stickers" data-tip="Sticker" aria-expanded="false" aria-controls="stickerDropdown"><span data-icon="sticker"></span></button
+          ><span class="divider"></span
+          ><button class="rail-soon" aria-label="Line, coming soon" data-tip="Line · coming soon" data-key="L" disabled><span data-icon="line"></span></button
+          ><button class="rail-soon" aria-label="Template, coming soon" data-tip="Template · coming soon" disabled><span data-icon="template"></span></button>
         </nav>
         <section id="stickerDropdown" aria-label="Sticker picker" hidden>
           <div class="sticker-dropdown-heading"><span>Stickers</span><button id="closeStickerDropdown" aria-label="Close stickers" title="Close stickers">×</button></div>
@@ -273,7 +247,7 @@
         </aside>
         <div id="emptyHint">
           <span class="sketch-title">Start with a single idea.</span>
-          <p id="modeHint">Choose a rectangle above, then click anywhere.</p>
+          <p id="modeHint">Pick a tool on the left, then click the canvas.</p>
           <span>Tab to grow · Space to pan</span>
         </div>
         <div
@@ -288,28 +262,26 @@
         <div class="bottom-hint" id="contextHint">
           Hover a shape to connect · Space to pan
         </div>
-        <div class="zoom-control">
-          <button id="zoomOut" aria-label="Zoom out" data-icon="minus"></button
-          ><button id="zoomValue" title="Reset to 100%">100%</button
-          ><button id="zoomIn" aria-label="Zoom in" data-icon="plus"></button
-          ><span class="divider"></span
-          ><button
-            id="fit"
-            title="Fit diagram (⌘0)"
-            aria-label="Fit diagram"
-            data-icon="fit"
-          ></button>
+        <div id="canvasControls">
+          <div class="control-group history-control">
+            <button id="undo" title="Undo (⌘Z)" aria-label="Undo" data-icon="undo"></button
+            ><button id="redo" title="Redo (⌘⇧Z)" aria-label="Redo" data-icon="redo"></button>
+          </div>
+          <div class="control-group zoom-control">
+            <button id="zoomOut" aria-label="Zoom out" data-icon="minus"></button
+            ><button id="zoomValue" title="Reset to 100%">100%</button
+            ><button id="zoomIn" aria-label="Zoom in" data-icon="plus"></button
+            ><span class="divider"></span
+            ><button id="fit" title="Fit diagram (⌘0)" aria-label="Fit diagram" data-icon="fit"></button>
+          </div>
+          <div class="control-group help-control">
+            <button id="help" class="help-button" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" data-icon="help"></button>
+          </div>
         </div>
-        <button
-          id="help"
-          class="help-button"
-          title="Keyboard shortcuts"
-          aria-label="Keyboard shortcuts"
-          data-icon="help"
-        ></button>
       </div>
     </div>
     <div id="nodeContextMenu" role="menu" hidden></div>
+    <div id="docMenu" role="menu" aria-label="Document" hidden></div>
     <div id="toast" role="status" hidden></div>
     <dialog id="modal"><div id="modalBody"></div></dialog>
     <dialog id="commandMenu" aria-labelledby="commandTitle"><div class="command-header"><h2 id="commandTitle">Search commands</h2><button id="closeCommands" aria-label="Close commands">×</button></div><input id="commandSearch" type="text" placeholder="Search tools, actions, and settings…" aria-label="Search commands" role="combobox" aria-controls="commandResults" aria-expanded="true" autocomplete="off"><div id="commandResults" role="listbox" aria-label="Commands"></div></dialog>

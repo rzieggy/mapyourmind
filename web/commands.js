@@ -47,12 +47,14 @@ function commandCatalog() {
     add("edge-"+style,"Use "+style+" connector","Connector",()=>styleSelection("style",style));
   if(typeof resetSelectedRoutes === "function" && edges.some(e=>!e.tree)) add("reset-route","Reset connector route","Connector",resetSelectedRoutes);
   if(edges.length && edges.every(e=>!e.tree)) add("edge-arrow","Toggle destination arrow","Connector",()=>styleSelection("arrow",!edges[0].arrow));
+  if (d()?.nodes.some(n=>n.kind==="mind")) add("arrange","Arrange mind maps","Arrange",arrangeMindMaps);
   if (d()?.nodes.length) {
     add("fit","Fit diagram","View",fit,"⌘0");
     add("export","Export PNG…","Document",exportDialog,"⌘E");
   }
   add("actual","Actual size","View",()=>zoom(1),"⌘⇧0");
   add("new","New document…","Document",newDoc,"⌘N");
+  add("import","Import mind map…","Document",chooseMindmapImport);
   add("home","Open document library","Document",goHome);
   add("settings","Edit creation defaults…","Document",defaultsPanel,"⌘,");
   add("help","Show keyboard shortcuts","Help",help);
