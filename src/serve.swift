@@ -33,8 +33,8 @@ final class BrowserServer {
         }
         listener.stateUpdateHandler = { [port] state in
             switch state {
-            case .ready: print("mapyourmind is running at http://127.0.0.1:\(port)\nKeep this window open while you use it. Close the browser tab first, then press Control-C to stop.")
-            case .failed(let error): print("Could not start on port \(port): \(error). Another copy may be running; try --port with another number."); exit(1)
+            case .ready: print("mapyourmind is open in your browser at http://127.0.0.1:\(port)\nKeep this window open while you work.\nTo stop: close the mapyourmind tab, then press Control-C here.")
+            case .failed(let error): print("Couldn't start browser mode: port \(port) is busy. Browser mode may already be running in another Terminal window. Or try another port, for example: --port 4871"); exit(1)
             default: break
             }
         }
@@ -124,13 +124,13 @@ func serveBrowser() -> Never {
     // As in the app, --ui-test uses a temporary library and never the real one.
     let testDirectory = arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-serve-" + UUID().uuidString) : nil
     do { store = try LocalStore(directory: testDirectory) } catch { print("Local storage could not be opened: \(error.localizedDescription)"); exit(1) }
-    guard store.lock() else { print("mapyourmind is already open, as the app or another --serve. Quit it first so two copies never write to one library."); exit(1) }
+    guard store.lock() else { print("mapyourmind is already open, either as the app or in another Terminal window. Quit it first, then try again. This keeps your work from being overwritten."); exit(1) }
     let server = BrowserServer(store: store, port: port)
     do { try server.start() } catch { print("Could not start: \(error)"); exit(1) }
     // Control-C waits for a save already in progress before exiting.
     signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN)
     let stops = [SIGINT, SIGTERM].map { DispatchSource.makeSignalSource(signal: $0, queue: .main) }
-    for source in stops { source.setEventHandler { server.queue.async { print("\nStopped. You can open the mapyourmind app again."); exit(0) } }; source.resume() }
+    for source in stops { source.setEventHandler { server.queue.async { print("\nBrowser mode stopped. You can open the mapyourmind app again."); exit(0) } }; source.resume() }
     if !arguments.contains("--no-open") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSWorkspace.shared.open(URL(string: "http://127.0.0.1:\(port)")!) } }
     withExtendedLifetime((server, stops)) { dispatchMain() }
 }

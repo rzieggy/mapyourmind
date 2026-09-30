@@ -84,7 +84,7 @@
       return file.text();
     },
     notePDF: () => {
-      throw Error("PDF export needs the Mac app. It is not available in the browser.");
+      throw Error("Exporting as PDF only works in the mapyourmind app.");
     },
   };
   async function call(message) {
@@ -100,7 +100,9 @@
       const body = await response.json();
       reply(id, body.result, body.error);
     } catch (e) {
-      reply(id, null, e.message === "Failed to fetch" ? "The mapyourmind server has stopped." : e.message);
+      if (e.name === "NotAllowedError" && (action.startsWith("clipboard") || action === "png"))
+        return reply(id, null, "The browser blocked the clipboard. Click the clipboard icon in the address bar, choose Allow, then try again.");
+      reply(id, null, e.message === "Failed to fetch" ? "Can't save: browser mode has stopped. Start it again from Terminal, then make any change to save." : e.message);
     }
   }
   window.webkit = { messageHandlers: { native: { postMessage: call } } };

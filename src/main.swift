@@ -316,7 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     let queue = DispatchQueue(label: "local.flowchart.storage", qos: .userInitiated)
     func applicationDidFinishLaunching(_ notification: Notification) {
         do { store = try LocalStore(directory: CommandLine.arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-ui-" + UUID().uuidString) : nil) } catch { let alert = NSAlert(); alert.messageText = "Local storage could not be opened"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return }
-        if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "Browser mode is using this library. Close the browser tab, stop the server with Control-C in its Terminal window, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
+        if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "You can't use the app and the browser at the same time. Close the mapyourmind tab, press Control-C in the Terminal window that started it, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
         if CommandLine.arguments.contains("--ui-test") {
             savedClipboard = (NSPasteboard.general.pasteboardItems ?? []).map { item in Dictionary(uniqueKeysWithValues: item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }) }
         }
