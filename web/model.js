@@ -37,14 +37,20 @@
     }
     return false;
   }
+  // Transparent, white, then a pastel rainbow (red, orange, yellow, green, blue,
+  // indigo, violet), then the note yellow and a grey. Every colour the older
+  // palette offered is still here, so existing fills keep a matching swatch.
   const colors = [
     "transparent",
     "#ffffff",
-    "#ffd43b",
-    "#fff0a6",
-    "#dbe4ff",
-    "#d3f9d8",
     "#ffe3e3",
+    "#ffe8cc",
+    "#fff0a6",
+    "#d3f9d8",
+    "#d0ebff",
+    "#dbe4ff",
+    "#e5dbff",
+    "#ffd43b",
     "#e9ecef",
   ];
   // Shapes are born filled so a diagram reads against the grid; transparent is
@@ -376,12 +382,15 @@
     if (!rootId) d.direction = direction;
     layout(d);
   }
-  function tidy(d) {
+  // With rootIDs, only those trees lose their manual offsets and are laid out.
+  function tidy(d, rootIDs = null) {
+    const scope = rootIDs ? new Set(rootIDs) : null;
     for (const n of d.nodes.filter((n) => n.kind === "mind")) {
+      if (scope && !scope.has(treeRoot(d, n).id)) continue;
       n.offsetX = 0;
       n.offsetY = 0;
     }
-    layout(d);
+    layout(d, scope);
   }
   function addNote(d, nodeId, text, parentId = null) {
     const n = d.nodes.find((n) => n.id === nodeId);

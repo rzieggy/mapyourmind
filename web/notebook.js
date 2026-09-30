@@ -241,7 +241,6 @@ const strokeChoices = [
 ];
 // Font size reads faster as sized letters than as a dropdown of numbers.
 const labelChoices=[
-  ["fontFamily", [["Excalifont","Handwritten","\u270e",15],["Google Sans","Google Sans","A",15],["Comic Shanns","Comic Shanns","&lt;/&gt;",12],["Arial","Arial","Aa",12]]],
   ["fontSize", [["14","Extra small","XS",10],["19","Small","S",12],["25","Medium","M",14],["34","Large","L",16],["44","Heading","XL",16]]],
 ];
 for(const [id,choices] of labelChoices){
@@ -258,6 +257,41 @@ for(const [id,choices] of labelChoices){
   if(choices.length>3) select.parentElement.classList.add("stacked-choice");
   select.hidden=true;select.before(group);
 }
+// Three font tiles, each written in its own font so the choice is visible before it is made.
+// Arial is no longer offered, but stays a valid value: a node that already uses it keeps it,
+// and then no tile is pressed.
+const fontChoices=[["Excalifont","Handwritten","Excalifont, cursive"],["Google Sans","Google Sans","'Google Sans', sans-serif"],["Comic Shanns","Comic","'Comic Shanns', monospace"]];
+{
+  const select=$("fontFamily"),group=document.createElement("div");
+  group.className="stroke-choice-group font-tiles";group.dataset.select="fontFamily";group.setAttribute("role","group");group.setAttribute("aria-label","Font family");
+  for(const [value,label,family] of fontChoices){
+    const b=document.createElement("button");b.type="button";b.dataset.value=value;b.title=value;b.setAttribute("aria-label",value);
+    // The page sets Google Sans on every element with !important, so each tile
+    // sets its own font the same way.
+    b.innerHTML='<span class="font-sample">Aa</span><span class="font-name">'+label+'</span>';
+    for(const el of [b,...b.children])el.style.setProperty("font-family",family,"important");
+    b.onpointerdown=e=>e.preventDefault();
+    b.onclick=()=>{select.value=value;select.dispatchEvent(new Event("change"));};
+    group.append(b);
+  }
+  select.parentElement.classList.add("stacked-choice");
+  select.hidden=true;select.before(group);
+}
+// The six shapes, as icons, instead of a dropdown.
+const shapeChoices=[["process","Rectangle","shape"],["decision","Decision","diamond"],["pill","Start / end","pill"],["note","Note","note"],["circle","Circle","circle"],["io","Input / output","io"]];
+{
+  const select=$("shapeStyle"),group=document.createElement("div");
+  group.className="stroke-choice-group shape-choices";group.dataset.select="shapeStyle";group.setAttribute("role","group");group.setAttribute("aria-label","Shape");
+  for(const [value,label,iconName] of shapeChoices){
+    const b=document.createElement("button");b.type="button";b.dataset.value=value;b.title=label;b.setAttribute("aria-label",label);
+    b.innerHTML=icon(iconName);
+    b.onpointerdown=e=>e.preventDefault();
+    b.onclick=()=>{select.value=value;select.dispatchEvent(new Event("change"));};
+    group.append(b);
+  }
+  select.parentElement.classList.add("stacked-choice");
+  select.hidden=true;select.before(group);
+}
 for(const [id,choices] of strokeChoices){
   const select=$(id),group=document.createElement("div");
   group.className="stroke-choice-group";group.dataset.select=id;group.setAttribute("role","group");group.setAttribute("aria-label",select.parentElement.firstChild.textContent.trim());
@@ -271,7 +305,7 @@ for(const [id,choices] of strokeChoices){
   select.hidden=true;select.before(group);
 }
 function syncStrokeControls(){
-  for(const [id] of [...strokeChoices,...labelChoices])for(const b of document.querySelectorAll('[data-select="'+id+'"] button')){
+  for(const id of [...strokeChoices,...labelChoices].map(([id])=>id).concat("fontFamily","shapeStyle"))for(const b of document.querySelectorAll('[data-select="'+id+'"] button')){
     b.setAttribute("aria-pressed",String(b.dataset.value===$(id).value));
   }
 }

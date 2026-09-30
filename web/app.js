@@ -542,7 +542,7 @@ function showPicker(x, y, source = null) {
   picker.innerHTML = shapeLabels
     .map(
       ([key, iconName, label], i) =>
-        `<button data-shape="${key}">${icon(iconName)} ${label}<kbd>⌘${i + 1}</kbd></button>`,
+        `<button data-shape="${key}" title="${label} (⌘${i + 1})">${icon(iconName)}<span>${label}</span></button>`,
     )
     .join("");
   picker.style.left = Math.min(x, canvas.clientWidth - 190) + "px";
@@ -574,6 +574,12 @@ function showPicker(x, y, source = null) {
 for (const b of $("toolbar").querySelectorAll("button[data-tool]"))
   b.onclick = () => {
     const t = b.dataset.tool;
+    // Picking another tool closes the sticker dropdown so rail popovers never stack.
+    if (!$("stickerDropdown").hidden) {
+      $("stickerDropdown").hidden = true;
+      $("addSticker").setAttribute("aria-expanded", "false");
+      $("addSticker").classList.remove("active");
+    }
     if (t === "shape") {
       setTool(t);
       // The picker opens beside the rail, level with the Shape button.
@@ -1499,6 +1505,7 @@ function paint() {
   $("zoomValue").textContent = Math.round(view.z * 100) + "%";
   $("undo").disabled = !history.past.length;
   $("redo").disabled = !history.future.length;
+  if (typeof syncContextBar === "function") syncContextBar();
 }
 function rect(a, b) {
   return {

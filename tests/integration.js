@@ -1343,10 +1343,11 @@ const familyButtons = [
   ...document.querySelectorAll('[data-select="fontFamily"] button'),
 ];
 assert(
-  familyButtons.length === documentFonts.length &&
+  familyButtons.length === 3 &&
+    documentFonts.includes("Arial") &&
     $("fontFamily").hidden &&
     familyButtons.map((b) => b.dataset.value).join() ===
-      "Excalifont,Google Sans,Comic Shanns,Arial",
+      "Excalifont,Google Sans,Comic Shanns",
   "Font family is a row of buttons rather than a dropdown",
 );
 selected.clear();

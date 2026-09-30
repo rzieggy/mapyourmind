@@ -23,6 +23,14 @@ Phases, in order: 1 shell layout · 2 style panel + context bar + right-click me
   cluster and its Export PDF button in the header. Double-click on empty canvas still creates free text (unchanged;
   the design Spec's "flowchart shape" line is wrong). Tests updated for the removed mode switch; new navigation
   assertions cover the document menu, in-place rename and the gear.
+- [x] Phase 2 (2026-09-30): style panel in the app's ELEMENT STYLE layout with the blue accent; Shape is six icons
+  instead of a dropdown; Font family is three tiles (Handwritten, Google Sans, Comic) each drawn in its own font; Arial
+  is no longer offered but stays valid, so legacy Arial nodes keep it with no tile pressed; fill palette is transparent,
+  white, a pastel rainbow, note yellow and grey (every earlier colour kept) in the existing sideways carousel with the
+  picker pinned outside; stroke and text colours are round chips. Dark slate mind-map context bar above a selection
+  from one tree (Arrange tree = M.tidy scoped to that tree, Add child, Comment); dark right-click menu and shape picker
+  without shortcut chips; the sticker dropdown is dark and closes when another tool is picked. Tests: model tests for
+  scoped tidy and the palette, navigation assertions for the bar, font tiles, shape icons, dark menus.
 
 ---
 

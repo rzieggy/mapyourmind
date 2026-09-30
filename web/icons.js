@@ -38,6 +38,7 @@ const iconPaths = {
   check: '<path d="m5 12 4 4L19 6"/>',
   pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   copy: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9.5a1 1 0 0 0 1 1h3.5"/>',
+  arrange: '<rect x="3" y="10" width="5" height="4" rx="1"/><rect x="16" y="4" width="5" height="4" rx="1"/><rect x="16" y="16" width="5" height="4" rx="1"/><path d="M8 12h4M12 6v12M12 6h4M12 18h4"/>',
   board: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 9h4v3H7zM13 13h4v3h-4zM11 10.5h2v4"/>',
   sticker: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.2c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2M9.2 9.6h.01M14.8 9.6h.01"/>',
   line: '<path d="M6 18 18 6"/><circle cx="5" cy="19" r="1.6"/><circle cx="19" cy="5" r="1.6"/>',

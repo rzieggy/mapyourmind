@@ -151,7 +151,7 @@ canvas.addEventListener("contextmenu", (e) => {
     (source
       ? `<button role="menuitem" data-direction="horizontal"${direction === "horizontal" ? ' aria-current="true"' : ""}>Lay out horizontally →</button><button role="menuitem" data-direction="vertical"${direction === "vertical" ? ' aria-current="true"' : ""}>Lay out vertically ↓</button>`
       : "") +
-    '<button role="menuitem" data-context="comment">Comment <kbd>⌘⌥C</kbd></button>' +
+    '<button role="menuitem" data-context="comment">Comment</button>' +
     (!n.attachmentTo ? '<button role="menuitem" data-context="placeholder">Add placeholder</button>' : '') +
     (M.children(d(), n.id).length
       ? `<button role="menuitem" data-context="collapse">${n.collapsed ? "Expand" : "Collapse"} branch</button>`
@@ -488,4 +488,52 @@ for (const row of document.querySelectorAll(".swatches")) {
   row.addEventListener("wheel", e => {
     if (e.shiftKey && e.deltaY && !e.deltaX) { e.preventDefault(); row.scrollLeft += e.deltaY; }
   }, { passive: false });
+}
+
+// Mind-map actions float above a selection that belongs to one tree: Arrange
+// tidies only that tree; Add child and Comment act on a single node.
+function contextBarTree() {
+  if (!current || isNotebook() || editing || drag || tool !== "select") return null;
+  const ns = d().nodes.filter((n) => selected.has(n.id));
+  if (!ns.length || ns.some((n) => n.kind !== "mind")) return null;
+  const roots = new Set(ns.map((n) => M.treeRoot(d(), n).id));
+  return roots.size === 1 ? { root: [...roots][0], nodes: ns } : null;
+}
+function syncContextBar() {
+  const bar = $("contextBar"),
+    tree = contextBarTree();
+  if (!tree) {
+    bar.hidden = true;
+    return;
+  }
+  const single = tree.nodes.length === 1;
+  bar.querySelector('[data-bar="child"]').hidden = !single;
+  bar.querySelector('[data-bar="comment"]').hidden = !single;
+  for (const divider of bar.querySelectorAll(".bar-divider")) divider.hidden = !single;
+  bar.hidden = false;
+  const x0 = Math.min(...tree.nodes.map((n) => n.x)),
+    x1 = Math.max(...tree.nodes.map((n) => n.x + n.w)),
+    y0 = Math.min(...tree.nodes.map((n) => n.y)),
+    y1 = Math.max(...tree.nodes.map((n) => n.y + n.h)),
+    panel = $("inspector").hidden ? 0 : $("inspector").offsetWidth,
+    width = bar.offsetWidth,
+    height = bar.offsetHeight;
+  const centre = ((x0 + x1) / 2) * view.z + view.x;
+  let top = y0 * view.z + view.y - height - 16;
+  if (top < 8) top = y1 * view.z + view.y + 16;
+  bar.style.left = Math.max(70, Math.min(centre - width / 2, canvas.clientWidth - panel - width - 8)) + "px";
+  bar.style.top = Math.max(8, Math.min(top, canvas.clientHeight - height - 64)) + "px";
+}
+for (const button of $("contextBar").querySelectorAll("[data-bar]")) {
+  button.onpointerdown = (e) => e.preventDefault();
+  button.onclick = () => {
+    const tree = contextBarTree();
+    if (!tree) return;
+    const n = tree.nodes[0];
+    if (button.dataset.bar === "arrange") {
+      mutate(() => M.tidy(d(), [tree.root]));
+      toast("Tree arranged. Manual positions reset.");
+    } else if (button.dataset.bar === "child") extendNode(n, true);
+    else openNotes(n.id);
+  };
 }

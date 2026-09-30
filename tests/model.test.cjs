@@ -312,3 +312,24 @@ test("Legacy donor appearance wins over new-element preferences",()=>{
  const step=["shape","fill","fillStyle","w","h"];
  try {const created=M.extend(doc,donor.id,true);for(const key of M.visualProperties.filter(k=>!step.includes(k)))assert.deepEqual(created[key],donor[key],key);assert.equal(created.shape,"process");assert.ok(M.validate(doc));}finally{M.setDefaults({});}
 });
+
+test("Arrange tree tidies only the chosen tree", () => {
+  const d = M.blank(), a = M.node("mind", 0, 0, "process", "A"), b = M.node("mind", 0, 600, "process", "B");
+  d.nodes.push(a, b);
+  const a1 = M.extend(d, a.id, true), b1 = M.extend(d, b.id, true);
+  Object.assign(a1, { offsetX: 40, offsetY: 30 });
+  Object.assign(b1, { offsetX: 55, offsetY: 25 });
+  M.tidy(d, [a.id]);
+  assert.equal(a1.offsetX, 0);
+  assert.equal(a1.offsetY, 0);
+  assert.equal(b1.offsetX, 55, "the other tree keeps its manual offset");
+  assert.equal(b1.offsetY, 25);
+  M.tidy(d);
+  assert.equal(b1.offsetX, 0, "without a scope every tree is tidied");
+});
+
+test("the fill palette keeps transparent first and every earlier colour", () => {
+  assert.equal(M.colors[0], "transparent");
+  for (const old of ["#ffffff", "#ffd43b", "#fff0a6", "#dbe4ff", "#d3f9d8", "#ffe3e3", "#e9ecef"]) assert.ok(M.colors.includes(old), old);
+  for (const pastel of ["#ffe8cc", "#d0ebff", "#e5dbff"]) assert.ok(M.colors.includes(pastel), pastel);
+});
