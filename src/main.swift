@@ -41,6 +41,13 @@ final class LocalStore {
         }
         try FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
     }
+    // The app and browser mode (`--serve`) both hold this for their lifetime, so two
+    // writers never share one library. The kernel drops it if the process dies.
+    var lockDescriptor: Int32 = -1
+    func lock() -> Bool {
+        lockDescriptor = open(directory.appendingPathComponent(".lock").path, O_RDWR | O_CREAT, 0o600)
+        return lockDescriptor >= 0 && flock(lockDescriptor, LOCK_EX | LOCK_NB) == 0
+    }
     func valid(_ data: Data) -> Bool {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], [1, 2, 3].contains(object["schema"] as? Int ?? 0), let docs = object["documents"] as? [[String: Any]] else { return false }
         var documentIDs = Set<String>()
@@ -309,6 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     let queue = DispatchQueue(label: "local.flowchart.storage", qos: .userInitiated)
     func applicationDidFinishLaunching(_ notification: Notification) {
         do { store = try LocalStore(directory: CommandLine.arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-ui-" + UUID().uuidString) : nil) } catch { let alert = NSAlert(); alert.messageText = "Local storage could not be opened"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return }
+        if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "Browser mode is using this library. Close the browser tab, stop the server with Control-C in its Terminal window, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
         if CommandLine.arguments.contains("--ui-test") {
             savedClipboard = (NSPasteboard.general.pasteboardItems ?? []).map { item in Dictionary(uniqueKeysWithValues: item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }) }
         }
@@ -476,6 +484,7 @@ if CommandLine.arguments.contains("--storage-test") {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-tests-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let store = try LocalStore(directory: root)
+        let rival = try LocalStore(directory: root); precondition(store.lock() && !rival.lock())
         let initial = try store.load(); precondition(initial["recovered"] as? Bool == false)
         let first: [String: Any] = ["schema": 1, "documents": [["id": "one", "title": "你好 🌱", "canvas": ["nodes": [], "edges": []]]]]
         try store.save(first); try store.save(first)
@@ -507,8 +516,10 @@ if CommandLine.arguments.contains("--storage-test") {
         var badRejected=false;do{try store.save(malformed)}catch{badRejected=true}
         let afterRejected=try Data(contentsOf:store.primary);precondition(badRejected && afterRejected==intact)
         try store.savePreferences(["process":["fill":"#123456"]]);precondition((store.loadPreferences()["process"] as? [String:String])?["fill"]=="#123456")
-        print("PASS native storage: schema 1/2/3, referenced images, deduplication, stickers, Notes, preferences, path traversal rejection, atomic recovery, future schema protection")
+        print("PASS native storage: schema 1/2/3, referenced images, deduplication, stickers, Notes, preferences, path traversal rejection, atomic recovery, future schema protection, single-writer lock")
     } catch { print("FAIL: \(error)"); exit(1) }
+} else if CommandLine.arguments.contains("--serve") {
+    serveBrowser()
 } else {
     let app = NSApplication.shared; let delegate = AppDelegate(); app.delegate = delegate; app.setActivationPolicy(.regular); app.run()
 }

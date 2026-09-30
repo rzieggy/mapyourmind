@@ -33,6 +33,19 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 
 Everything saves automatically.
 
+## Browser mode (for sharing a tab)
+
+When a meeting only lets you share a browser tab, run mapyourmind as a local page instead of the app:
+
+1. Quit the mapyourmind app.
+2. In Terminal: `/Applications/mapyourmind.app/Contents/MacOS/mapyourmind --serve`
+3. It opens `http://127.0.0.1:4870` in your browser, on the same library as the app. Share that tab.
+4. When you are done, close the tab, then press Control-C in Terminal.
+
+The server listens on this Mac only (127.0.0.1). The app and browser mode refuse to run at the same time, so two copies never write to one library. `--port N` picks another port, and `--no-open` skips opening the browser.
+
+In the browser, PDF export for Notes is unavailable, and the browser keeps some shortcuts for itself: ⌘1 to ⌘6 switch tabs and ⌘N opens a window. Use the tool rail and the + button instead. Copy and paste ask for clipboard permission once.
+
 ## Where your data lives
 
 `~/Library/Application Support/mapyourmind/`. Back up this folder if you want a copy of your diagrams.

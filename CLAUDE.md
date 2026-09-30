@@ -4,7 +4,7 @@ mapyourmind is an offline macOS flowchart and mind-map app. It grew out of Excal
 
 ## Architecture
 
-Native Swift AppKit and WKWebView, with classic JavaScript scripts sharing globals. No web server, npm runtime, backend, account or analytics. Rough.js and all fonts are bundled. `web/index.html` defines script order. Frontend JavaScript must stay compatible with the macOS WebKit runtime.
+Native Swift AppKit and WKWebView, with classic JavaScript scripts sharing globals. No npm runtime, backend, account or analytics. The one server is opt-in browser mode (`--serve`, `src/serve.swift`), bound to 127.0.0.1, so a meeting that allows only tab sharing can show the app. It rewrites `index.html` to load `web/browser-bridge.js`, which replaces `window.webkit.messageHandlers.native`: storage actions go to the same `LocalStore` over HTTP, and clipboard, PNG, import and links use browser APIs. It checks Host, Origin and a per-launch token. The app and `--serve` each hold an `flock` on `<library>/.lock`, so they never write to one library together. `--serve --ui-test` uses a temporary library. Rough.js and all fonts are bundled. `web/index.html` defines script order. Frontend JavaScript must stay compatible with the macOS WebKit runtime.
 
 - `web/model.js`: graph operations, layout, selection, clipboard, undo and graph validation.
 - `web/app.js`: canvas interaction, rendering, inspectors, editing, native bridge and PNG export.
@@ -14,6 +14,8 @@ Native Swift AppKit and WKWebView, with classic JavaScript scripts sharing globa
 - `web/import-format.js`, `web/import.js`: bounded versioned mind-map import contract and interface.
 - `web/navigation.js`: document sidebar and switching with save completion.
 - `web/document-format.js`, `web/notebook.js`: Notes documents, sanitization, editing and PDF layout.
+- `src/serve.swift`: browser mode HTTP server.
+- `web/browser-bridge.js`: browser stand-in for the native bridge, loaded only by browser mode.
 - `src/main.swift`: native shell, persistence, import picker, clipboard, bounded PDF rendering, native tests and shutdown flush.
 - `Info.plist`: application version and identity. `build.sh` compiles, signs and runs the native storage test.
 
