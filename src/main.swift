@@ -303,7 +303,7 @@ final class NotePDFRenderer: NSObject, WKNavigationDelegate {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate, BrowserServerDelegate {
     var window: NSWindow!
     var web: WKWebView!
     var store: LocalStore!
@@ -314,9 +314,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var pdfRenderer: NotePDFRenderer?
     var savedClipboard = [[NSPasteboard.PasteboardType: Data]]()
     let queue = DispatchQueue(label: "local.flowchart.storage", qos: .userInitiated)
+    var testsStarted = false
+    // Browser mode (File › Open in Browser). The server runs in this process and the
+    // window shows web/browser-mode.html until the tab hands back; see src/serve.swift.
+    var browser: BrowserServer?
+    var browserPhase = "live"
+    var browserTimer: Timer?
+    var browserStarted = Date()
+    var browserSawTab = false
+    var browserFinish: (() -> Void)?
+    // `--ui-test --browser-test` enters browser mode on a temporary library without
+    // opening a browser, so a test can drive the tab itself.
+    let browserTesting = CommandLine.arguments.contains("--browser-test")
     func applicationDidFinishLaunching(_ notification: Notification) {
         do { store = try LocalStore(directory: CommandLine.arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-ui-" + UUID().uuidString) : nil) } catch { let alert = NSAlert(); alert.messageText = "Local storage could not be opened"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return }
-        if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "You can't use the app and the browser at the same time. Close the mapyourmind tab, press Control-C in the Terminal window that started it, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
+        if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "mapyourmind was started from Terminal. Close the mapyourmind tab, press Control-C in that Terminal window, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
         if CommandLine.arguments.contains("--ui-test") {
             savedClipboard = (NSPasteboard.general.pasteboardItems ?? []).map { item in Dictionary(uniqueKeysWithValues: item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }) }
         }
@@ -331,7 +343,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         NSApp.activate(ignoringOtherApps: true)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard CommandLine.arguments.contains("--ui-test") else { return }
+        guard CommandLine.arguments.contains("--ui-test"), web.url?.lastPathComponent == "index.html", !testsStarted else { return }
+        testsStarted = true
+        if browserTesting { startBrowserTestSignals(); web.evaluateJavaScript("window.appCommand('browser')", completionHandler: nil); return }
         let testURL = Bundle.main.resourceURL!.appendingPathComponent(CommandLine.arguments.contains("--program-a-test") ? "program-a.js" : CommandLine.arguments.contains("--program-test") ? "program.js" : CommandLine.arguments.contains("--schema-test") ? "schema3.js" : CommandLine.arguments.contains("--perf-test") ? "perf.js" : CommandLine.arguments.contains("--notebook-test") ? "notebook.js" : CommandLine.arguments.contains("--navigation-test") ? "navigation.js" : CommandLine.arguments.contains("--feedback-test") ? "feedback.js" : "integration.js")
         guard let source = try? String(contentsOf: testURL, encoding: .utf8) else { print("FAIL missing integration test"); exit(1) }
         web.callAsyncJavaScript(source, arguments: [:], in: nil, in: .page) { result in
@@ -356,14 +370,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let main = NSMenu(); let appItem = NSMenuItem(); main.addItem(appItem); let appMenu = NSMenu(); appItem.submenu = appMenu
         appMenu.addItem(withTitle: "About mapyourmind", action: #selector(about), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator()); appMenu.addItem(withTitle: "Hide mapyourmind", action: #selector(NSApplication.hide(_:)), keyEquivalent: ""); appMenu.addItem(withTitle: "Quit mapyourmind", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        for (title, commands) in [("File", [("New document", "n", "new"), ("Export PNG", "e", "export")]), ("Edit", [("Undo", "z", "undo"), ("Redo", "Z", "redo"), ("Cut", "x", "cut"), ("Copy", "c", "copy"), ("Paste", "v", "paste"), ("Copy as PNG", "C", "image"), ("Select all", "a", "all"), ("Search commands", "k", "commands"), ("Duplicate", "d", "duplicate"), ("Comment", "c", "comment"), ("Bold", "b", "bold"), ("Italic", "i", "italic"), ("Underline", "u", "underline"), ("Highlight", "h", "highlight")]), ("View", [("Fit diagram", "0", "fit"), ("Actual size", "0", "actual"), ("Zoom in", "+", "in"), ("Zoom out", "-", "out")])] {
+        for (title, commands) in [("File", [("New document", "n", "new"), ("Export PNG", "e", "export"), ("Open in Browser", "", "browser")]), ("Edit", [("Undo", "z", "undo"), ("Redo", "Z", "redo"), ("Cut", "x", "cut"), ("Copy", "c", "copy"), ("Paste", "v", "paste"), ("Copy as PNG", "C", "image"), ("Select all", "a", "all"), ("Search commands", "k", "commands"), ("Duplicate", "d", "duplicate"), ("Comment", "c", "comment"), ("Bold", "b", "bold"), ("Italic", "i", "italic"), ("Underline", "u", "underline"), ("Highlight", "h", "highlight")]), ("View", [("Fit diagram", "0", "fit"), ("Actual size", "0", "actual"), ("Zoom in", "+", "in"), ("Zoom out", "-", "out")])] {
             let item = NSMenuItem(); main.addItem(item); let menu = NSMenu(title: title); item.title = title; item.submenu = menu
             for (label, key, command) in commands { let m = NSMenuItem(title: label, action: #selector(menuCommand(_:)), keyEquivalent: key.lowercased()); m.target = self; m.representedObject = command; if key != key.lowercased() { m.keyEquivalentModifierMask = [.command, .shift] }; if command == "actual" { m.keyEquivalentModifierMask = [.command, .shift] }; if command == "comment" { m.keyEquivalentModifierMask = [.command, .option] }; menu.addItem(m) }
         }
         NSApp.mainMenu = main
     }
     @objc func about() { NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "mapyourmind", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.5.0", .credits: NSAttributedString(string: "An offline canvas for flowcharts and mind maps.\nExcalifont © Excalidraw — SIL OFL 1.1.\nGoogle Sans © Google LLC — SIL OFL 1.1.\nSketch rendering by Rough.js — MIT License.")]) }
-    @objc func menuCommand(_ sender: NSMenuItem) { if let command = sender.representedObject as? String { web.evaluateJavaScript("window.appCommand(\"\(command)\")", completionHandler: nil) } }
+    @objc func menuCommand(_ sender: NSMenuItem) {
+        // While the tab is live the editor page is not loaded; Open in Browser reopens the tab.
+        if browser != nil { if sender.representedObject as? String == "browser" { openBrowserTab() }; return }
+        if let command = sender.representedObject as? String { web.evaluateJavaScript("window.appCommand(\"\(command)\")", completionHandler: nil) }
+    }
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) { decisionHandler(action.request.url?.isFileURL == true ? .allow : .cancel) }
     func reply(_ id: String, result: Any? = nil, error: String? = nil) {
         let body: [String: Any] = ["id": id, "result": result ?? NSNull(), "error": error ?? NSNull()]
@@ -373,6 +391,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true, let b = message.body as? [String: Any], let id = b["id"] as? String, let action = b["action"] as? String else { return }
         switch action {
+        case "openInBrowser": reply(id, result: true); enterBrowserMode()
+        case "browserSaveFailed":
+            reply(id, result: true)
+            let alert = NSAlert(); alert.messageText = "Couldn't open in the browser"
+            alert.informativeText = "Your latest change hasn't saved yet, so mapyourmind stays here and nothing is lost.\n\n" + (b["message"] as? String ?? "")
+            alert.addButton(withTitle: "Try again"); alert.addButton(withTitle: "Stay here")
+            alert.beginSheetModal(for: window) { response in if response == .alertFirstButtonReturn { self.web.evaluateJavaScript("window.openInBrowser()", completionHandler: nil) } }
+        case "browserOpenTab": openBrowserTab()
+        case "browserCopyLink": if let url = browser?.url { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url.absoluteString, forType: .string) }
+        case "browserBack": endBrowserMode("back") { self.showEditor() }
         case "documentMode":
             noteMode = b["mode"] as? String == "notes"
             for menu in NSApp.mainMenu?.items ?? [] {
@@ -466,9 +494,89 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         default: reply(id, error: "Unknown action.")
         }
     }
+    // Saves happen before this is called (window.openInBrowser flushes first).
+    func enterBrowserMode() {
+        guard browser == nil else { openBrowserTab(); return }
+        let server = BrowserServer(store: store, queue: queue); server.delegate = self; browser = server
+        browserPhase = "starting"; browserStarted = Date(); browserSawTab = false
+        let page = Bundle.main.resourceURL!.appendingPathComponent("web/browser-mode.html")
+        web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
+        window.title = "mapyourmind — open in browser"
+        browserTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.pushBrowserStatus() }
+        server.start(ports: Array((browserTesting ? 4871 : 4870)...4879)) { port in
+            guard port != nil else {
+                self.browserTimer?.invalidate(); self.browserTimer = nil; self.browser = nil; self.showEditor()
+                let alert = NSAlert(); alert.messageText = "Couldn't open in the browser"; alert.informativeText = "Other apps are using all the addresses mapyourmind can use (ports 4870 to 4879). Quit other copies of mapyourmind or other developer tools, then try again."
+                alert.beginSheetModal(for: self.window, completionHandler: nil); return
+            }
+            self.browserPhase = "live"; self.pushBrowserStatus(); self.openBrowserTab()
+        }
+    }
+    // Test hooks for --browser-test, so a script can use the same paths as the menus:
+    // SIGUSR2 is File › Open in Browser, SIGUSR1 is Quit.
+    var browserTestSignals = [DispatchSourceSignal]()
+    func startBrowserTestSignals() {
+        for (number, action) in [(SIGUSR1, { NSApp.terminate(nil) }), (SIGUSR2, { self.menuCommandNamed("browser") })] as [(Int32, () -> Void)] {
+            signal(number, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
+            // Run it as a run-loop block, as a menu event would: Quit waits in a nested run
+            // loop, and inside a main-queue block the main queue could not drain meanwhile.
+            source.setEventHandler { RunLoop.main.perform(action) }; source.resume(); browserTestSignals.append(source)
+        }
+    }
+    func menuCommandNamed(_ command: String) { let item = NSMenuItem(); item.representedObject = command; menuCommand(item) }
+    func openBrowserTab() { if let url = browser?.url, !browserTesting { NSWorkspace.shared.open(url) } }
+    func pushBrowserStatus() {
+        guard let server = browser else { return }
+        let tabs = server.connectedTabs
+        if tabs > 0 { browserSawTab = true }
+        // Give a freshly opened tab a few seconds to connect before saying none is open.
+        var phase = browserPhase
+        if phase == "live", tabs == 0, !browserSawTab, browserStarted.timeIntervalSinceNow > -8 { phase = "starting" }
+        let status: [String: Any] = ["phase": phase, "url": server.port > 0 ? server.url.absoluteString : "", "tabs": tabs, "lastSaved": server.lastSaved.map { DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short) } ?? NSNull()]
+        guard let data = try? JSONSerialization.data(withJSONObject: status), let json = String(data: data, encoding: .utf8) else { return }
+        web.evaluateJavaScript("window.setBrowserStatus && window.setBrowserStatus(\(json))", completionHandler: nil)
+    }
+    // Asks the live tab to save its last change and stop, then calls done. With no tab
+    // connected, or none answering within four seconds, it goes ahead: every change the
+    // tab already sent is saved, and the store queue drains before the server stops.
+    func endBrowserMode(_ kind: String, immediately: Bool = false, then done: @escaping () -> Void) {
+        guard let server = browser, browserFinish == nil else { return }
+        browserPhase = "ending"; server.ending = kind; pushBrowserStatus()
+        var finished = false
+        let finish = { [weak self] in
+            guard let self, !finished else { return }; finished = true
+            self.browserFinish = nil; self.browserTimer?.invalidate(); self.browserTimer = nil
+            // A moment for other tabs' heartbeats to see the ending, then stop.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.queue.async { DispatchQueue.main.async { server.stop(); self.browser = nil; done() } } }
+        }
+        browserFinish = finish
+        if immediately || server.connectedTabs == 0 || server.activeSession == nil { finish(); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: finish)
+    }
+    func showEditor() {
+        window.title = "mapyourmind"
+        let url = Bundle.main.resourceURL!.appendingPathComponent("web/index.html")
+        web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+    func browserTabAskedToReturn() { endBrowserMode("back", immediately: true) { self.showEditor() } }
+    func browserTabFinished() { browserFinish?() }
+    func browserSaved() { pushBrowserStatus() }
     func windowDidResignKey(_ notification: Notification) { web.evaluateJavaScript("window.flushSave && window.flushSave()", completionHandler: nil) }
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if let server = browser, !terminating {
+            if server.connectedTabs > 0, !browserTesting {
+                let alert = NSAlert(); alert.messageText = "Quit and end the browser tab?"
+                alert.informativeText = "The tab saves its last change first, then stops. If you're still sharing it, the meeting will see a “mapyourmind was closed” screen."
+                alert.addButton(withTitle: "Save and quit"); alert.addButton(withTitle: "Cancel")
+                if alert.runModal() != .alertFirstButtonReturn { return .terminateCancel }
+            }
+            terminating = true
+            endBrowserMode("quit") { NSApp.reply(toApplicationShouldTerminate: true) }
+            return .terminateLater
+        }
         if terminating { return .terminateNow }; terminating = true
         web.callAsyncJavaScript("if (window.flushSave) await window.flushSave();", arguments: [:], in: nil, in: .page) { result in
             switch result {

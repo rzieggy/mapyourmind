@@ -1,5 +1,10 @@
 "use strict";
 let recentCommands = [], commandMatches = [], commandIndex = 0;
+// Open in Browser in the app; Back to app in a tab that the app opened.
+function addBrowserCommand(add) {
+  if (!window.mapyourmindBrowser) add("browser", "Open in Browser", "Document", () => window.openInBrowser());
+  else if (window.backToApp) add("back-to-app", "Back to app", "Document", () => window.backToApp());
+}
 function commandCatalog() {
   const nodes = d()?.nodes.filter(n => selected.has(n.id)) || [];
   const edges = d()?.edges.filter(e => selected.has(e.id)) || [];
@@ -11,6 +16,7 @@ function commandCatalog() {
     add("note-export", "Export PDF…", "Document", exportNotePDF, "⌘E");
     add("new", "New document…", "Document", newDoc, "⌘N");
     add("home", "Open document library", "Document", goHome);
+    addBrowserCommand(add);
     add("help", "Show keyboard shortcuts", "Help", help);
     return commands;
   }
@@ -54,6 +60,7 @@ function commandCatalog() {
   }
   add("actual","Actual size","View",()=>zoom(1),"⌘⇧0");
   add("new","New document…","Document",newDoc,"⌘N");
+  addBrowserCommand(add);
   add("import","Import mind map…","Document",chooseMindmapImport);
   add("home","Open document library","Document",goHome);
   add("settings","Edit creation defaults…","Document",defaultsPanel,"⌘,");

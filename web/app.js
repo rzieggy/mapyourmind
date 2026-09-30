@@ -3345,9 +3345,20 @@ async function textCommand(command) {
   }
   return true;
 }
+// File › Open in Browser. Saves first; if that fails the app stays put and says why.
+window.openInBrowser = async () => {
+  try {
+    await window.flushSave();
+  } catch (e) {
+    await native("browserSaveFailed", { message: e.message });
+    return;
+  }
+  await native("openInBrowser");
+};
 window.appCommand = async (command) => {
   try {
     if (command === "commands") { openCommandMenu(); return; }
+    if (command === "browser") { if (!window.mapyourmindBrowser) await window.openInBrowser(); return; }
     if (command === "settings") {
       if (!$("modal").open) defaultsPanel();
       return;

@@ -1,50 +1,74 @@
 import Cocoa
 import Network
 
-// Browser mode: `mapyourmind --serve [--port N] [--no-open]` serves the same web page
-// on 127.0.0.1 so it can be shared as a browser tab. It answers the page's storage
-// actions with the same LocalStore as the app and holds the library lock, so the app
-// and a browser tab never write to one library at once. web/browser-bridge.js stands
-// in for the native message handler; everything else runs unchanged.
+// Browser mode serves the same web page on 127.0.0.1 so it can be shared as a
+// browser tab. The app starts it from File › Open in Browser and runs it in-process
+// (AppDelegate is the delegate); `mapyourmind --serve` runs it on its own from
+// Terminal. Storage actions use the same LocalStore and queue as the app, and the
+// library lock keeps any other copy out. web/browser-bridge.js stands in for the
+// native message handler; everything else in the page runs unchanged.
+//
+// Each tab says hello with a session id and then sends a heartbeat. The newest tab
+// to say hello is the only one allowed to write, so two tabs never overwrite each
+// other; the heartbeat also tells a tab when the app wants it to finish.
+protocol BrowserServerDelegate: AnyObject {
+    func browserTabAskedToReturn()
+    func browserTabFinished()
+    func browserSaved()
+}
+
 final class BrowserServer {
     let store: LocalStore
-    let port: UInt16
+    let queue: DispatchQueue
     let root: URL
     let token = UUID().uuidString
-    let queue = DispatchQueue(label: "mapyourmind.serve.storage", qos: .userInitiated)
-    var listener: NWListener!
+    weak var delegate: BrowserServerDelegate?
+    private(set) var port: UInt16 = 0
+    var listener: NWListener?
+    // Session state lives on the main queue.
+    var sessions = [String: Date]()
+    var activeSession: String?
+    var ending: String?
+    var lastSaved: Date?
     static let bodyLimit = 64_000_000
     static let types = ["html": "text/html; charset=utf-8", "js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png", "woff2": "font/woff2", "ttf": "font/ttf", "json": "application/json", "txt": "text/plain; charset=utf-8", "md": "text/plain; charset=utf-8"]
 
-    init(store: LocalStore, port: UInt16) {
-        self.store = store; self.port = port
+    init(store: LocalStore, queue: DispatchQueue) {
+        self.store = store; self.queue = queue
         root = Bundle.main.resourceURL!.appendingPathComponent("web", isDirectory: true).standardizedFileURL
     }
+    var url: URL { URL(string: "http://127.0.0.1:\(port)")! }
     var origins: [String] { ["127.0.0.1:\(port)", "localhost:\(port)"] }
+    var connectedTabs: Int { sessions.values.filter { $0.timeIntervalSinceNow > -6 }.count }
 
-    func start() throws {
+    // Tries each port in turn and calls back on the main queue with the one it got,
+    // or nil when every one is taken.
+    func start(ports: [UInt16], completion: @escaping (UInt16?) -> Void) {
+        guard let candidate = ports.first else { completion(nil); return }
         let parameters = NWParameters.tcp
-        parameters.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!)
-        parameters.allowLocalEndpointReuse = true
-        listener = try NWListener(using: parameters)
+        parameters.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: candidate)!)
+        guard let listener = try? NWListener(using: parameters) else { start(ports: Array(ports.dropFirst()), completion: completion); return }
+        var settled = false
         listener.newConnectionHandler = { [weak self] connection in
             connection.start(queue: .global(qos: .userInitiated))
             self?.receive(connection, buffer: Data())
         }
-        listener.stateUpdateHandler = { [port] state in
+        listener.stateUpdateHandler = { [weak self] state in
+            guard let self, !settled else { return }
             switch state {
-            case .ready: print("mapyourmind is open in your browser at http://127.0.0.1:\(port)\nKeep this window open while you work.\nTo stop: close the mapyourmind tab, then press Control-C here.")
-            case .failed(let error): print("Couldn't start browser mode: port \(port) is busy. Browser mode may already be running in another Terminal window. Or try another port, for example: --port 4871"); exit(1)
+            case .ready: settled = true; self.port = candidate; self.listener = listener; completion(candidate)
+            case .failed, .cancelled: settled = true; listener.cancel(); self.start(ports: Array(ports.dropFirst()), completion: completion)
             default: break
             }
         }
         listener.start(queue: .main)
     }
+    func stop() { listener?.cancel(); listener = nil }
 
     // One request per connection: read the head, then the body its Content-Length names.
     func receive(_ connection: NWConnection, buffer: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 20) { [weak self] data, _, complete, error in
-            guard let self else { return }
+            guard let self else { connection.cancel(); return }
             var buffer = buffer; if let data { buffer.append(data) }
             guard buffer.count <= BrowserServer.bodyLimit + 65_536 else { self.send(connection, 413, text: "Too large"); return }
             if let end = buffer.range(of: Data("\r\n\r\n".utf8)), let head = String(data: buffer[..<end.lowerBound], encoding: .utf8) {
@@ -68,11 +92,12 @@ final class BrowserServer {
         if method == "POST", path == "/native" {
             guard let origin = headers["origin"], origins.map({ "http://" + $0 }).contains(origin), headers["x-mym-token"] == token,
                   let message = try? JSONSerialization.jsonObject(with: body) as? [String: Any], let action = message["action"] as? String else { send(connection, 403, text: "Forbidden"); return }
-            queue.async { self.native(action, message) { result, error in
-                let reply: [String: Any] = ["result": result ?? NSNull(), "error": error ?? NSNull()]
-                let data = (try? JSONSerialization.data(withJSONObject: reply, options: [.fragmentsAllowed])) ?? Data("{\"error\":\"Reply could not be encoded.\"}".utf8)
+            let reply = { (result: Any?, error: String?) in
+                let body: [String: Any] = ["result": result ?? NSNull(), "error": error ?? NSNull()]
+                let data = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed])) ?? Data("{\"error\":\"Reply could not be encoded.\"}".utf8)
                 self.send(connection, 200, type: "application/json", body: data)
-            } }
+            }
+            DispatchQueue.main.async { self.native(action, message, reply) }
             return
         }
         guard method == "GET" else { send(connection, 405, text: "Method not allowed"); return }
@@ -94,14 +119,28 @@ final class BrowserServer {
         send(connection, 200, type: "text/html; charset=utf-8", body: Data(rewritten.utf8))
     }
 
+    // Runs on the main queue; storage work moves to the store's queue.
     func native(_ action: String, _ b: [String: Any], _ reply: @escaping (Any?, String?) -> Void) {
+        let session = b["session"] as? String ?? ""
+        if !session.isEmpty { sessions[session] = Date() }
         let message = { (error: Error) in (error as? StoreFailure)?.message ?? error.localizedDescription }
+        let write = { (work: @escaping () throws -> Any) in
+            guard !session.isEmpty, session == self.activeSession else { reply(nil, "inactive"); return }
+            self.queue.async {
+                do { let result = try work(); DispatchQueue.main.async { self.lastSaved = Date(); self.delegate?.browserSaved() }; reply(result, nil) }
+                catch { reply(nil, message(error)) }
+            }
+        }
         switch action {
-        case "load": do { var result = try store.load(); result["clock"] = monotonicClock(); reply(result, nil) } catch { reply(nil, message(error)) }
-        case "save": guard let state = b["state"] else { reply(nil, "Missing state."); return }; do { try store.save(state); reply(true, nil) } catch { reply(nil, message(error)) }
-        case "putImage": guard let encoded = b["data"] as? String else { reply(nil, "Missing image."); return }; do { reply(try store.putImage(encoded), nil) } catch { reply(nil, message(error)) }
-        case "loadPreferences": reply(store.loadPreferences(), nil)
-        case "savePreferences": guard let preferences = b["preferences"] as? [String: Any] else { reply(nil, "Invalid preferences."); return }; do { try store.savePreferences(preferences); reply(true, nil) } catch { reply(nil, message(error)) }
+        case "hello": activeSession = session; reply(["app": delegate != nil], nil)
+        case "heartbeat": reply(["active": session == activeSession, "ending": (ending as Any?) ?? NSNull()], nil)
+        case "backToApp": reply(true, nil); if session == activeSession { delegate?.browserTabAskedToReturn() }
+        case "ended": reply(true, nil); if session == activeSession { delegate?.browserTabFinished() }
+        case "save": guard let state = b["state"] else { reply(nil, "Missing state."); return }; write { try self.store.save(state); return true }
+        case "putImage": guard let encoded = b["data"] as? String else { reply(nil, "Missing image."); return }; write { try self.store.putImage(encoded) }
+        case "savePreferences": guard let preferences = b["preferences"] as? [String: Any] else { reply(nil, "Invalid preferences."); return }; write { try self.store.savePreferences(preferences); return true }
+        case "load": queue.async { do { var result = try self.store.load(); result["clock"] = monotonicClock(); reply(result, nil) } catch { reply(nil, message(error)) } }
+        case "loadPreferences": queue.async { reply(self.store.loadPreferences(), nil) }
         case "clock": reply(monotonicClock(), nil)
         case "localFonts": reply(localFontFaces(), nil)
         default: reply(nil, "Unavailable in the browser.")
@@ -116,6 +155,7 @@ final class BrowserServer {
     }
 }
 
+// Terminal fallback: `mapyourmind --serve [--port N] [--no-open]`.
 func serveBrowser() -> Never {
     let arguments = CommandLine.arguments
     var port: UInt16 = 4870
@@ -125,12 +165,15 @@ func serveBrowser() -> Never {
     let testDirectory = arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-serve-" + UUID().uuidString) : nil
     do { store = try LocalStore(directory: testDirectory) } catch { print("Local storage could not be opened: \(error.localizedDescription)"); exit(1) }
     guard store.lock() else { print("mapyourmind is already open, either as the app or in another Terminal window. Quit it first, then try again. This keeps your work from being overwritten."); exit(1) }
-    let server = BrowserServer(store: store, port: port)
-    do { try server.start() } catch { print("Could not start: \(error)"); exit(1) }
+    let server = BrowserServer(store: store, queue: DispatchQueue(label: "mapyourmind.serve.storage", qos: .userInitiated))
+    server.start(ports: [port]) { got in
+        guard got != nil else { print("Couldn't start browser mode: port \(port) is busy. Browser mode may already be running in another Terminal window. Or try another port, for example: --port 4871"); exit(1) }
+        print("mapyourmind is open in your browser at \(server.url.absoluteString)\nKeep this window open while you work.\nTo stop: close the mapyourmind tab, then press Control-C here.")
+        if !arguments.contains("--no-open") { NSWorkspace.shared.open(server.url) }
+    }
     // Control-C waits for a save already in progress before exiting.
     signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN)
     let stops = [SIGINT, SIGTERM].map { DispatchSource.makeSignalSource(signal: $0, queue: .main) }
     for source in stops { source.setEventHandler { server.queue.async { print("\nBrowser mode stopped. You can open the mapyourmind app again."); exit(0) } }; source.resume() }
-    if !arguments.contains("--no-open") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSWorkspace.shared.open(URL(string: "http://127.0.0.1:\(port)")!) } }
     withExtendedLifetime((server, stops)) { dispatchMain() }
 }

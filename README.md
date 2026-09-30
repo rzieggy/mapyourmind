@@ -5,7 +5,7 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 
 ## Install
 
-1. Download `mapyourmind-1.30.0-AppleSilicon.zip` and double-click it to unzip.
+1. Download `mapyourmind-1.31.0-AppleSilicon.zip` and double-click it to unzip.
 2. Drag `mapyourmind.app` into your **Applications** folder.
 3. Open it. The first time, macOS blocks it because this is a personal build that isn't notarized by Apple:
    - **macOS 15 or newer:** open the app once and close the warning. Then go to **System Settings → Privacy & Security**,
@@ -35,32 +35,21 @@ Everything saves automatically.
 
 ## Open mapyourmind in your browser (for screen sharing)
 
-Some meeting apps only let you share a browser tab, not an app window. Browser mode opens mapyourmind in a Chrome tab so you can share just that tab. It shows the same documents, and changes save to your Mac as usual.
+Some meeting apps only let you share a browser tab, not an app window. Browser mode opens mapyourmind in a browser tab so you can share just that tab. It shows the same documents, and changes save to your Mac as usual.
 
-**To start**
+**To start:** choose **File → Open in Browser** (or press ⌘K and type "browser"). mapyourmind saves your work and opens a tab. Share that tab in your meeting.
 
-1. Quit the mapyourmind app (⌘Q).
-2. Open **Terminal**, paste this line and press Return:
+While the tab is open, the app window shows a short status screen instead of your documents. That way only one place edits at a time.
 
-   ```
-   /Applications/mapyourmind.app/Contents/MacOS/mapyourmind --serve
-   ```
-
-3. mapyourmind opens in your browser. In your meeting, share that tab.
-
-Keep the Terminal window open while you work. Closing it stops browser mode.
-
-**To stop**
-
-1. Close the mapyourmind tab.
-2. In Terminal, press **Control-C**.
-3. Open the mapyourmind app again as usual.
+**To come back:** click **← Back to app** at the bottom of the sidebar in the tab, or **Back to app** in the app window. Your work is saved, and the app opens where you left off.
 
 **Good to know**
 
 - Nothing goes online. The page only runs on your own Mac.
-- You can't use the app and the browser tab at the same time. If you try, mapyourmind tells you to close the other one first, so your work never gets overwritten.
-- If the tab opened in the wrong browser, copy the address (`http://127.0.0.1:4870`) into the browser you use for meetings.
+- Keep the app open while you use the tab. If you quit the app, the tab saves its last change and then stops.
+- If the tab opened in the wrong browser, click **Copy link** in the app window and paste the link into the browser you use for meetings. **Open tab again** reopens a tab you closed.
+- If you open a second tab, the newest one is the one that edits. The older tab shows **Use this tab instead** if you want it back.
+- If your Mac sleeps or gets busy, the tab shows "Reconnecting…". Keep working; it saves when the connection is back.
 - The first time you paste, the browser asks for clipboard permission. Click **Allow**.
 - In the browser, ⌘1–6 and ⌘N switch tabs and open windows instead. Use the shape buttons on the left and the **+** button instead.
 - Exporting Notes as PDF only works in the app. Diagrams export as PNG in both.
