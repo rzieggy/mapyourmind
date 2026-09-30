@@ -1004,7 +1004,8 @@ function edgeGeometry(e, doc = d()) {
     stub = 32;
   const p1 = { x: p.x + va[0] * stub, y: p.y + va[1] * stub },
     q1 = { x: q.x + vb[0] * stub, y: q.y + vb[1] * stub };
-  if (e.style === "straight") return { p, q, p1, q1, pts: [p, q], sa, sb };
+  if (e.style === "straight")
+    return trimEnds({ p, q, p1, q1, pts: [p, q], sa, sb }, true);
   // A dragged bend takes over the middle of the route. Straight connectors have
   // nothing to bend, so they ignore it.
   if (e.bend) {
@@ -1024,7 +1025,7 @@ function edgeGeometry(e, doc = d()) {
         { x: bend.x + tx * trail, y: bend.y + ty * trail },
         { x: q.x + vb[0] * reach(trail), y: q.y + vb[1] * reach(trail) },
       ];
-      return { p, q, p1, q1, pts: [p, bend, q], bend, curve, sa, sb };
+      return trimEnds({ p, q, p1, q1, pts: [p, bend, q], bend, curve, sa, sb });
     }
     const pts =
       e.style === "curved"
@@ -1038,7 +1039,7 @@ function edgeGeometry(e, doc = d()) {
             q1,
             q,
           ];
-    return { p, q, p1, q1, pts, bend, sa, sb };
+    return trimEnds({ p, q, p1, q1, pts, bend, sa, sb });
   }
   let pts = [p, p1];
   if (va[0] && vb[0]) {
@@ -1062,7 +1063,34 @@ function edgeGeometry(e, doc = d()) {
       .some((point, i) => M.segmentBlocked(pts[i + 1], point, [a, b]))
   )
     pts = [p, ...M.routeElbow(p1, q1, [a, b]), q];
-  return { p, q, p1, q1, pts, sa, sb };
+  return trimEnds({ p, q, p1, q1, pts, sa, sb });
+}
+// Every connector stops short of both shapes, measured along its first and
+// last segment, so it never touches an outline. The route is planned from the
+// outline anchors and only the ends move, so every consumer of the geometry
+// (drawing, hit testing, labels, handles, export) sees the same trimmed line.
+const connectorGap = 8;
+function trimEnds(g, straight = false) {
+  const a = g.p,
+    b = g.q;
+  let ua = sideVector(g.sa),
+    ub = sideVector(g.sb),
+    gap = connectorGap;
+  if (straight) {
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!length) return g;
+    ua = [(b.x - a.x) / length, (b.y - a.y) / length];
+    ub = [-ua[0], -ua[1]];
+    gap = Math.min(connectorGap, length / 4);
+  }
+  const p = { x: a.x + ua[0] * gap, y: a.y + ua[1] * gap },
+    q = { x: b.x + ub[0] * gap, y: b.y + ub[1] * gap };
+  return {
+    ...g,
+    p,
+    q,
+    pts: g.pts.map((point) => (point === a ? p : point === b ? q : point)),
+  };
 }
 // Connector labels belong to the connector itself: they ride the midpoint of the
 // drawn path, so every move, reroute and restyle carries them, and the stroke is
@@ -1259,30 +1287,85 @@ function orthogonalTo(from, to, horizontal) {
   return horizontal ? [{ x: to.x, y: from.y }] : [{ x: from.x, y: to.y }];
 }
 const edgeCache = new Map();
+// The arrowhead is a filled, slightly rounded triangle about four stroke widths
+// long, with its tip on the trimmed end. It is drawn crisply at every
+// sloppiness; only the line is sketched. It never takes more than half of the
+// last segment, so a short stub or a tight tree curve cannot fold back on it.
+function arrowHead(e, g) {
+  if (!e.arrow) return null;
+  let dir, room;
+  if (e.style === "straight") {
+    const length = Math.hypot(g.q.x - g.p.x, g.q.y - g.p.y) || 1;
+    dir = [(g.q.x - g.p.x) / length, (g.q.y - g.p.y) / length];
+    room = length;
+  } else {
+    const vb = sideVector(g.sb);
+    dir = [-vb[0], -vb[1]];
+    const before = g.curve
+      ? g.curve[3]
+      : e.style === "curved" && !g.bend
+        ? null
+        : g.pts[g.pts.length - 2];
+    room = before
+      ? Math.hypot(g.q.x - before.x, g.q.y - before.y)
+      : curveDistance(e, g);
+  }
+  const length = Math.min(Math.max(8, (e.sw || 1.8) * 4), room / 2);
+  return {
+    tip: g.q,
+    base: { x: g.q.x - dir[0] * length, y: g.q.y - dir[1] * length },
+    dir,
+    length,
+    half: length * 0.6,
+  };
+}
+function drawArrowHead(c, head, color) {
+  const { tip, base, dir, length, half } = head,
+    radius = Math.min(1.6, length * 0.16),
+    // Rounding pulls the drawn tip back from the corner; start the corner
+    // further out by that much so the visible tip lands on the trimmed end.
+    reach = radius * (Math.hypot(length, half) / half - 1),
+    t = { x: tip.x + dir[0] * reach, y: tip.y + dir[1] * reach },
+    corners = [
+      t,
+      { x: base.x - dir[1] * half, y: base.y + dir[0] * half },
+      { x: base.x + dir[1] * half, y: base.y - dir[0] * half },
+    ];
+  // A fill ignores the line dash, so a dashed connector still gets a solid head.
+  c.fillStyle = color;
+  c.beginPath();
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }),
+    start = mid(corners[2], corners[0]);
+  c.moveTo(start.x, start.y);
+  for (let i = 0; i < 3; i++) {
+    const corner = corners[i],
+      next = corners[(i + 1) % 3];
+    c.arcTo(corner.x, corner.y, next.x, next.y, radius);
+  }
+  c.closePath();
+  c.fill();
+}
 function drawEdge(c, e, doc = d()) {
   const g = edgeGeometry(e, doc);
   if (!g) return;
-  const x = g.p.x,
+  const head = arrowHead(e, g),
+    // With a head the line stops at its base, so it never shows past the tip.
+    end = head ? head.base : g.q,
+    x = g.p.x,
     y = g.p.y;
   let path = "M0 0";
-  if (e.style === "straight") path += `L${g.q.x - x} ${g.q.y - y}`;
+  if (e.style === "straight") path += `L${end.x - x} ${end.y - y}`;
   else if (e.style === "curved") {
     if (g.curve)
-      path += `C${g.curve[0].x - x} ${g.curve[0].y - y} ${g.curve[1].x - x} ${g.curve[1].y - y} ${g.bend.x - x} ${g.bend.y - y}C${g.curve[2].x - x} ${g.curve[2].y - y} ${g.curve[3].x - x} ${g.curve[3].y - y} ${g.q.x - x} ${g.q.y - y}`;
+      path += `C${g.curve[0].x - x} ${g.curve[0].y - y} ${g.curve[1].x - x} ${g.curve[1].y - y} ${g.bend.x - x} ${g.bend.y - y}C${g.curve[2].x - x} ${g.curve[2].y - y} ${g.curve[3].x - x} ${g.curve[3].y - y} ${end.x - x} ${end.y - y}`;
     else {
       const va = sideVector(g.sa),
         vb = sideVector(g.sb),
         dist = curveDistance(e, g);
-      path += `C${va[0] * dist} ${va[1] * dist} ${g.q.x - x + vb[0] * dist} ${g.q.y - y + vb[1] * dist} ${g.q.x - x} ${g.q.y - y}`;
+      path += `C${va[0] * dist} ${va[1] * dist} ${g.q.x - x + vb[0] * dist} ${g.q.y - y + vb[1] * dist} ${end.x - x} ${end.y - y}`;
     }
-  } else for (const p of g.pts.slice(1)) path += `L${p.x - x} ${p.y - y}`;
-  if (e.arrow) {
-    const prev = e.style === "straight" ? g.p : g.q1,
-      angle = Math.atan2(g.q.y - prev.y, g.q.x - prev.x),
-      qx = g.q.x - x,
-      qy = g.q.y - y;
-    path += `M${qx - 10 * Math.cos(angle - 0.45)} ${qy - 10 * Math.sin(angle - 0.45)}L${qx} ${qy}L${qx - 10 * Math.cos(angle + 0.45)} ${qy - 10 * Math.sin(angle + 0.45)}`;
-  }
+  } else
+    for (const p of [...g.pts.slice(1, -1), end]) path += `L${p.x - x} ${p.y - y}`;
   const key = JSON.stringify([path, e.stroke, e.sw, e.strokeStyle, e.sloppiness]);
   let cached = edgeCache.get(e.id);
   if (cached?.key !== key) {
@@ -1302,8 +1385,11 @@ function drawEdge(c, e, doc = d()) {
   c.save();
   c.translate(x, y);
   if (label) clipAroundLabel(c, label, -x, -y);
+  c.lineCap = "round";
+  c.lineJoin = "round";
   roughCanvas(c).draw(cached.drawable);
   c.restore();
+  if (head) drawArrowHead(c, head, e.stroke);
   if (label && editing?.id !== label.id) drawRichText(c, label);
 }
 let renderPending = false;

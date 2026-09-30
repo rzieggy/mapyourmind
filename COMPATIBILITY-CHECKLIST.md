@@ -31,6 +31,21 @@ Phases, in order: 1 shell layout · 2 style panel + context bar + right-click me
   from one tree (Arrange tree = M.tidy scoped to that tree, Add child, Comment); dark right-click menu and shape picker
   without shortcut chips; the sticker dropdown is dark and closes when another tool is picked. Tests: model tests for
   scoped tidy and the palette, navigation assertions for the bar, font tiles, shape icons, dark menus.
+- [x] Phase 3 (2026-09-30): Whimsical-style connectors, render only (no stored data, no migration). `edgeGeometry` plans
+  the route from the outline anchors as before, then `trimEnds` moves both ends 8px out along the first/last segment
+  (straight, elbow, curved, bent, tree), so hit testing, labels (`labelT`, `clipAroundLabel`), endpoint handles, export
+  bounds and PNG all use the trimmed line. The open chevron left the Rough.js path: `drawArrowHead` fills a slightly
+  rounded triangle, max(8, 4 × stroke width) long, capped at half the last segment, in the stroke colour, crisp at
+  Clean, Hand-drawn and Sketchy; the sketched line ends at the head's base. Round caps and joins on connector lines.
+  Tree connectors keep their arrow rules (none by default). PNG export and the defaults preview share `drawEdge`.
+  Perf (`--perf-test`, whole 2,096-node diagram): 28.6–34.9 ms before, 28.8–31.0 ms after, over three runs each.
+  Tests: 11 integration assertions (gap at sloppiness 0/1/2 for straight, elbow, curved and bent; drawn path starts on
+  the trimmed end and stops at the head base, read from the path given to Rough.js; filled head checked by pixels; hit
+  testing 3px from each end; a real click selects the connector; handles on the trimmed ends; no head without an
+  arrow; tree gap; round caps). Known: a connector end on a side midpoint sits inside that side's port hit area, so
+  a click there grabs the port, as it did before the gap. Environment note: on a 1× display (external 1080p as main
+  screen) two older assertions fail on clean HEAD too: integration "A long label wraps …" (field scrollWidth 159 vs
+  clientWidth 157) and feedback "Active text editor renders at native zoom …" (width rounded to 103 vs 102.6).
 
 ---
 

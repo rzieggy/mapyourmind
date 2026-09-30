@@ -987,6 +987,153 @@ function strokeVisible(worldX, worldY, span = 7) {
       return true;
   return false;
 }
+// Whimsical-style connectors: both ends stop 8px short of the shape along the
+// first and last segment, the head is a filled triangle drawn crisply at every
+// sloppiness, and the sketched line stops at the head's base. The line that is
+// drawn is read from the path handed to Rough.js, so the check covers what
+// reaches the canvas at each sloppiness rather than the geometry alone.
+{
+  const gapBase = M.bounds(d().nodes),
+    gapA = M.node("flow", gapBase.x, gapBase.y + gapBase.h + 600, "process", "Gap A"),
+    gapB = M.node("flow", gapBase.x + 420, gapBase.y + gapBase.h + 760, "process", "Gap B");
+  d().nodes.push(gapA, gapB);
+  const gapEdge = M.connect(d(), gapA.id, gapB.id, { fromSide: "right", toSide: "left" }),
+    realPath = roughGenerator.path,
+    realHead = drawArrowHead;
+  // Clearing the cache redraws every connector, so keep only this one's path
+  // (by its seed) and the head whose tip is on its end.
+  let drawnPath = null,
+    drawnHeads = [];
+  roughGenerator.path = function (path, options) {
+    if (options.seed === sketchSeed(gapEdge.id)) drawnPath = path;
+    return realPath.call(this, path, options);
+  };
+  drawArrowHead = (c, head, color) => {
+    drawnHeads.push({ head, color });
+    realHead(c, head, color);
+  };
+  const lastPoint = (path) => {
+    const numbers = path.match(/-?\d+(\.\d+)?(e-?\d+)?/g).map(Number);
+    return { x: numbers.at(-2), y: numbers.at(-1) };
+  };
+  const along = (from, to, vector, distance) =>
+    Math.abs(to.x - from.x - vector[0] * distance) < 0.01 &&
+    Math.abs(to.y - from.y - vector[1] * distance) < 0.01;
+  const inkAt = (worldX, worldY) => {
+    const ratio = devicePixelRatio || 1,
+      data = ctx.getImageData(
+        Math.round((worldX * view.z + view.x) * ratio),
+        Math.round((worldY * view.z + view.y) * ratio),
+        1,
+        1,
+      ).data;
+    return data[3] > 200 && data[0] < 90 && data[1] < 90 && data[2] < 90;
+  };
+  const cases = [];
+  for (const style of ["straight", "elbow", "curved"])
+    for (const sloppiness of [0, 1, 2])
+      for (const bend of style === "straight" ? [false] : [false, true]) {
+        gapEdge.style = style;
+        gapEdge.sloppiness = sloppiness;
+        if (bend) gapEdge.bend = { x: gapA.x + 260, y: gapA.y - 90 };
+        else delete gapEdge.bend;
+        edgeCache.clear();
+        selected.clear();
+        drawnPath = null;
+        drawnHeads = [];
+        const g = edgeGeometry(gapEdge),
+          from = anchor(gapA, g.sa),
+          to = anchor(gapB, g.sb);
+        focusOn(g.q);
+        const straightDir = [(to.x - from.x) / Math.hypot(to.x - from.x, to.y - from.y), (to.y - from.y) / Math.hypot(to.x - from.x, to.y - from.y)],
+          out = style === "straight" ? straightDir : sideVector(g.sa),
+          back = style === "straight" ? [-straightDir[0], -straightDir[1]] : sideVector(g.sb),
+          drawnHead = drawnHeads.find((h) => Math.hypot(h.head.tip.x - g.q.x, h.head.tip.y - g.q.y) < 0.01),
+          head = drawnHead?.head,
+          inward = head ? head.dir : [-back[0], -back[1]],
+          end = drawnPath && lastPoint(drawnPath),
+          drawnEnd = end && { x: end.x + g.p.x, y: end.y + g.p.y };
+        cases.push({
+          name: `${style}${bend ? " bent" : ""} s${sloppiness}`,
+          gap: along(from, g.p, out, 8) && along(to, g.q, back, 8),
+          // Rough.js draws from the path's origin, which drawEdge puts on g.p.
+          starts: /^M0 0/.test(drawnPath || ""),
+          headFilled: !!head && drawnHead.color === gapEdge.stroke &&
+            Math.hypot(head.tip.x - g.q.x, head.tip.y - g.q.y) < 0.01 &&
+            head.length >= Math.min(4 * gapEdge.sw, 8) - 0.01 &&
+            [0.25, 0.45].every((t) =>
+              [-0.5, 0.5].every((side) => {
+                const x = head.base.x + head.dir[0] * head.length * t,
+                  y = head.base.y + head.dir[1] * head.length * t,
+                  width = head.half * (1 - t) * side;
+                return inkAt(x - head.dir[1] * width, y + head.dir[0] * width);
+              }),
+            ),
+          stopsAtBase: !!head && !!drawnEnd &&
+            Math.hypot(drawnEnd.x - head.base.x, drawnEnd.y - head.base.y) < 0.01,
+          hitNearEnds: hitEdge({ x: g.p.x + out[0] * 3, y: g.p.y + out[1] * 3 })?.id === gapEdge.id &&
+            hitEdge({ x: g.q.x - inward[0] * 3, y: g.q.y - inward[1] * 3 })?.id === gapEdge.id,
+          handles: edgeHandles(gapEdge).every((h) =>
+            Math.hypot(h.x - (h.end === "from" ? g.p.x : g.q.x), h.y - (h.end === "from" ? g.p.y : g.q.y)) < 0.01),
+        });
+      }
+  const failed = (key) => cases.filter((c) => !c[key]).map((c) => c.name).join(", ");
+  assert(!failed("gap"), "Connectors stop 8px short of both shapes along their end segments (straight, elbow, curved, bent; every sloppiness) " + failed("gap"));
+  assert(!failed("starts"), "The drawn line starts on the trimmed end " + failed("starts"));
+  assert(!failed("headFilled"), "The arrowhead is a filled triangle in the stroke colour with its tip on the trimmed end " + failed("headFilled"));
+  assert(!failed("stopsAtBase"), "The sketched line stops at the arrowhead's base at every sloppiness " + failed("stopsAtBase"));
+  assert(!failed("hitNearEnds"), "Hit testing still finds a connector a few pixels from either end " + failed("hitNearEnds"));
+  assert(!failed("handles"), "Endpoint handles sit on the trimmed ends " + failed("handles"));
+  // A real click near the end selects the connector. Connection ports sit on
+  // the same spot as a connector's end and outrank it, as they did before the
+  // gap, so the click lands 3px past the port's reach.
+  gapEdge.style = "straight";
+  delete gapEdge.bend;
+  selected.clear();
+  setTool("select");
+  const clickGeometry = edgeGeometry(gapEdge);
+  focusOn(clickGeometry.p);
+  const clickDir = [clickGeometry.q.x - clickGeometry.p.x, clickGeometry.q.y - clickGeometry.p.y].map((v) => v / Math.hypot(clickGeometry.q.x - clickGeometry.p.x, clickGeometry.q.y - clickGeometry.p.y));
+  let clickReach = 0;
+  while (clickReach < 60 && hitPort({ x: clickGeometry.p.x + clickDir[0] * clickReach, y: clickGeometry.p.y + clickDir[1] * clickReach })) clickReach++;
+  const clickAt = { x: clickGeometry.p.x + clickDir[0] * (clickReach + 3), y: clickGeometry.p.y + clickDir[1] * (clickReach + 3) };
+  assert(clickReach + 3 <= 24, "The clickable line begins within 24px of the trimmed end");
+  pointer("pointerdown", clickAt.x, clickAt.y);
+  pointer("pointerup", clickAt.x, clickAt.y);
+  assert(selected.has(gapEdge.id) && selected.size === 1, "Clicking a connector just past its gap selects the connector");
+  // No arrow: no head, and the line runs to the trimmed end.
+  gapEdge.arrow = false;
+  edgeCache.clear();
+  drawnPath = null;
+  drawnHeads = [];
+  paint();
+  const plain = edgeGeometry(gapEdge),
+    plainEnd = lastPoint(drawnPath || "M0 0");
+  assert(!drawnHeads.some((h) => Math.hypot(h.head.tip.x - plain.q.x, h.head.tip.y - plain.q.y) < 0.01) && Math.hypot(plainEnd.x + plain.p.x - plain.q.x, plainEnd.y + plain.p.y - plain.q.y) < 0.01, "A connector without an arrow draws no head and runs to its trimmed end");
+  gapEdge.arrow = true;
+  // Tree connectors keep the gap too.
+  const treeEdge = d().edges.find((e) => e.tree),
+    treeGeometry = treeEdge && edgeGeometry(treeEdge),
+    treeFrom = treeEdge && anchor(M.byId(d()).get(treeEdge.from), treeGeometry.sa),
+    treeTo = treeEdge && anchor(M.byId(d()).get(treeEdge.to), treeGeometry.sb);
+  assert(treeEdge && along(treeFrom, treeGeometry.p, sideVector(treeGeometry.sa), 8) && along(treeTo, treeGeometry.q, sideVector(treeGeometry.sb), 8), "Tree connectors stop 8px short of parent and child");
+  // Lines round their caps and joins.
+  let caps = null;
+  const realDraw = roughCanvas(ctx).draw;
+  roughCanvas(ctx).draw = function (drawable) {
+    if (drawable === edgeCache.get(gapEdge.id)?.drawable) caps = [ctx.lineCap, ctx.lineJoin];
+    return realDraw.call(this, drawable);
+  };
+  paint();
+  delete roughCanvas(ctx).draw;
+  assert(caps?.[0] === "round" && caps?.[1] === "round", "Connector lines use round caps and joins");
+  delete roughGenerator.path;
+  drawArrowHead = realHead;
+  selected.clear();
+  d().edges = d().edges.filter((e) => e.id !== gapEdge.id);
+  d().nodes = d().nodes.filter((n) => n.id !== gapA.id && n.id !== gapB.id);
+  edgeCache.clear();
+}
 const labelEdge = d().edges.at(-1);
 assert(
   labelEdge.style === "curved",
