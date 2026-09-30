@@ -10,6 +10,8 @@ Native Swift AppKit and WKWebView, with classic JavaScript scripts sharing globa
 - `web/app.js`: canvas interaction, rendering, inspectors, editing, native bridge and PNG export.
 - `web/rich-text.js`: UTF-16 text marks and shared editor/canvas text layout.
 - `web/commands.js`: ⌘K command search, contextual to the selection.
+- `web/find.js`: ⌘F across board text/connector labels or Notes, transient highlights and match navigation.
+- `web/board-pdf.js`: bounded 3× board raster export to a content-sized native PDF; hidden descendants and UI helpers are excluded.
 - `web/features.js`, `web/notes.js`: context actions, collapsible branches, comments, images, stickers and attached placeholders.
 - `web/import-format.js`, `web/import.js`: bounded versioned mind-map import contract and interface.
 - `web/navigation.js`: document sidebar and switching with save completion.

@@ -91,6 +91,7 @@
     notePDF: () => {
       throw Error("Exporting as PDF only works in the mapyourmind app. Use Back to app, then export.");
     },
+    boardPDF: () => local.notePDF(),
   };
   // A request to the local server. Throws with `gone` set when this page's server
   // is no longer the one running (the app went back or quit and started again).

@@ -190,6 +190,7 @@ noteBody.addEventListener("keydown",e=>{
 });
 document.addEventListener("keydown",e=>{
   if(!isNotebook() || e.isComposing || $("modal").open || !(e.metaKey||e.ctrlKey))return;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
   const key=e.key.toLowerCase();
   const command=e.shiftKey && e.code==="Digit7"?"ordered":e.shiftKey && e.code==="Digit8"?"bullet":
     ({b:"bold",i:"italic",u:"underline",k:"link",e:"export",z:e.shiftKey?"redo":"undo",c:e.shiftKey?"image":null})[key];

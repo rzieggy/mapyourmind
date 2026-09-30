@@ -370,7 +370,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let main = NSMenu(); let appItem = NSMenuItem(); main.addItem(appItem); let appMenu = NSMenu(); appItem.submenu = appMenu
         appMenu.addItem(withTitle: "About mapyourmind", action: #selector(about), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator()); appMenu.addItem(withTitle: "Hide mapyourmind", action: #selector(NSApplication.hide(_:)), keyEquivalent: ""); appMenu.addItem(withTitle: "Quit mapyourmind", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        for (title, commands) in [("File", [("New document", "n", "new"), ("Export PNG", "e", "export"), ("Open in Browser", "", "browser")]), ("Edit", [("Undo", "z", "undo"), ("Redo", "Z", "redo"), ("Cut", "x", "cut"), ("Copy", "c", "copy"), ("Paste", "v", "paste"), ("Copy as PNG", "C", "image"), ("Select all", "a", "all"), ("Search commands", "k", "commands"), ("Duplicate", "d", "duplicate"), ("Comment", "c", "comment"), ("Bold", "b", "bold"), ("Italic", "i", "italic"), ("Underline", "u", "underline"), ("Highlight", "h", "highlight")]), ("View", [("Fit diagram", "0", "fit"), ("Actual size", "0", "actual"), ("Zoom in", "+", "in"), ("Zoom out", "-", "out")])] {
+        for (title, commands) in [("File", [("New document", "n", "new"), ("Export PNG", "e", "export"), ("Export PDF…", "", "export-pdf"), ("Open in Browser", "", "browser")]), ("Edit", [("Undo", "z", "undo"), ("Redo", "Z", "redo"), ("Cut", "x", "cut"), ("Copy", "c", "copy"), ("Paste", "v", "paste"), ("Copy as PNG", "C", "image"), ("Select all", "a", "all"), ("Find in document…", "f", "find"), ("Search commands", "k", "commands"), ("Duplicate", "d", "duplicate"), ("Comment", "c", "comment"), ("Bold", "b", "bold"), ("Italic", "i", "italic"), ("Underline", "u", "underline"), ("Highlight", "h", "highlight")]), ("View", [("Fit diagram", "0", "fit"), ("Actual size", "0", "actual"), ("Zoom in", "+", "in"), ("Zoom out", "-", "out")])] {
             let item = NSMenuItem(); main.addItem(item); let menu = NSMenu(title: title); item.title = title; item.submenu = menu
             for (label, key, command) in commands { let m = NSMenuItem(title: label, action: #selector(menuCommand(_:)), keyEquivalent: key.lowercased()); m.target = self; m.representedObject = command; if key != key.lowercased() { m.keyEquivalentModifierMask = [.command, .shift] }; if command == "actual" { m.keyEquivalentModifierMask = [.command, .shift] }; if command == "comment" { m.keyEquivalentModifierMask = [.command, .option] }; menu.addItem(m) }
         }
@@ -387,6 +387,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let body: [String: Any] = ["id": id, "result": result ?? NSNull(), "error": error ?? NSNull()]
         guard let data = try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed]), let json = String(data: data, encoding: .utf8) else { return }
         DispatchQueue.main.async { self.web.evaluateJavaScript("window.nativeReply(\(json))", completionHandler: nil) }
+    }
+    // Notes and Boards share the save panel, cancellation and temporary test destinations.
+    func pdfDestination(_ body: [String: Any], id: String, testName: String, complete: @escaping (URL, Bool) -> Void) {
+        let test = body["test"] as? Bool == true && CommandLine.arguments.contains("--ui-test")
+        if test { complete(FileManager.default.temporaryDirectory.appendingPathComponent("excalidravv-" + testName + ".pdf"), true); return }
+        let panel = NSSavePanel(); panel.allowedContentTypes = [.pdf]
+        let filename = String((body["filename"] as? String ?? "Document").prefix(160)).replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        panel.nameFieldStringValue = filename + ".pdf"
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url else { self.exportingPDF = false; self.reply(id, result: false); return }
+            complete(url, false)
+        }
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true, let b = message.body as? [String: Any], let id = b["id"] as? String, let action = b["action"] as? String else { return }
@@ -406,6 +418,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             for menu in NSApp.mainMenu?.items ?? [] {
                 for item in menu.submenu?.items ?? [] {
                     if item.representedObject as? String == "export" { item.title = noteMode ? "Export PDF" : "Export PNG" }
+                    if item.representedObject as? String == "export-pdf" { item.isHidden = noteMode }
                     if item.representedObject as? String == "image" { item.title = noteMode ? "Copy as PNG (diagrams only)" : "Copy as PNG" }
                 }
             }
@@ -416,9 +429,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         case "notePDF":
             guard noteMode, !exportingPDF else { reply(id, error: "Open a note before exporting PDF."); return }
             exportingPDF = true
-            let test = b["test"] as? Bool == true && CommandLine.arguments.contains("--ui-test")
             guard let html = b["html"] as? String, html.utf16.count <= 2_100_000 else { exportingPDF = false; reply(id, error: "Invalid note export."); return }
-            let complete: (URL) -> Void = { url in
+            let complete: (URL, Bool) -> Void = { url, test in
                 self.pdfRenderer = NotePDFRenderer(html: html) { result in
                     self.exportingPDF = false
                     defer { self.pdfRenderer = nil }
@@ -434,13 +446,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                 }
                 self.pdfRenderer?.start()
             }
-            if test { complete(FileManager.default.temporaryDirectory.appendingPathComponent("excalidravv-notes-test.pdf")) }
-            else {
-                let panel = NSSavePanel(); panel.allowedContentTypes = [.pdf]; panel.nameFieldStringValue = (b["filename"] as? String ?? "Notes") + ".pdf"
-                panel.beginSheetModal(for: window) { response in
-                    guard response == .OK, let url = panel.url else { self.exportingPDF = false; self.reply(id, result: false); return }
-                    complete(url)
-                }
+            pdfDestination(b, id: id, testName: "notes-test", complete: complete)
+        case "boardPDF":
+            guard !noteMode, !exportingPDF else { reply(id, error: "Open a board before exporting PDF."); return }
+            guard let width = b["width"] as? Double, let height = b["height"] as? Double,
+                  width.isFinite, height.isFinite, width > 0, height > 0, width <= 16000.0 / 3, height <= 16000.0 / 3,
+                  let base64 = b["data"] as? String, base64.utf8.count <= 200_000_000,
+                  let data = Data(base64Encoded: base64), data.starts(with: [137, 80, 78, 71, 13, 10, 26, 10]),
+                  let bitmap = NSBitmapImageRep(data: data), bitmap.pixelsWide > 0, bitmap.pixelsHigh > 0,
+                  bitmap.pixelsWide <= 16000, bitmap.pixelsHigh <= 16000, bitmap.pixelsWide * bitmap.pixelsHigh <= 64_000_000,
+                  abs(Double(bitmap.pixelsWide) - width * 3) < 1, abs(Double(bitmap.pixelsHigh) - height * 3) < 1,
+                  let image = bitmap.cgImage else { reply(id, error: "The board image is invalid or too large."); return }
+            let output = CFDataCreateMutable(nil, 0)!
+            var box = CGRect(x: 0, y: 0, width: width, height: height)
+            guard let consumer = CGDataConsumer(data: output), let pdf = CGContext(consumer: consumer, mediaBox: &box, nil) else { reply(id, error: "Could not create PDF."); return }
+            pdf.beginPDFPage(nil); pdf.interpolationQuality = .high; pdf.draw(image, in: box); pdf.endPDFPage(); pdf.closePDF()
+            let pdfData = output as Data
+            exportingPDF = true
+            let background = b["background"] as? String == "transparent" ? "transparent" : "white"
+            let scope = b["scope"] as? String == "selection" ? "selection" : "all"
+            pdfDestination(b, id: id, testName: "board-" + background + "-" + scope + "-test") { url, test in
+                defer { self.exportingPDF = false }
+                do {
+                    try pdfData.write(to: url, options: .atomic)
+                    if test, let saved = PDFDocument(url: url), let page = saved.page(at: 0) {
+                        self.reply(id, result: ["pages": saved.pageCount, "path": url.path, "width": page.bounds(for: .mediaBox).width, "height": page.bounds(for: .mediaBox).height,
+                            "pixelWidth": bitmap.pixelsWide, "pixelHeight": bitmap.pixelsHigh, "cornerAlpha": bitmap.colorAt(x: 0, y: 0)?.alphaComponent ?? -1])
+                    } else { self.reply(id, result: true) }
+                } catch { self.reply(id, error: error.localizedDescription) }
             }
         case "importMindmap":
             let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false; panel.canChooseDirectories = false; panel.message = "Choose a mind-map JSON file"

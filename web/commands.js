@@ -11,6 +11,7 @@ function commandCatalog() {
   const commands = [];
   const add = (id, label, category, run, shortcut = "") => commands.push({id,label,category,run,shortcut});
   if (isNotebook()) {
+    add("find", "Find in note…", "Edit", openFind, "⌘F");
     add("note-undo", "Undo text edit", "Edit", () => notebookUndo(), "⌘Z");
     add("note-redo", "Redo text edit", "Edit", () => notebookUndo(true), "⌘⇧Z");
     add("note-export", "Export PDF…", "Document", exportNotePDF, "⌘E");
@@ -22,6 +23,7 @@ function commandCatalog() {
   }
   for (const [id,label,shortcut] of [["select","Select tool","V"],["hand","Pan tool","H"],["shape","Shape tool","R"],["mind","Mind-map root tool","M"],["text","Text tool","T"],["connector","Connector tool","C"]])
     add("tool-"+id,label,"Tools",()=>setTool(id),shortcut);
+  add("find", "Find in board…", "Edit", openFind, "⌘F");
   if (typeof openTemplatePicker === "function") {
     add("templates","Insert template…","Insert",openTemplatePicker);
     add("eisenhower","Insert Eisenhower Matrix","Insert",()=>insertTemplate("eisenhower"));
@@ -57,6 +59,7 @@ function commandCatalog() {
   if (d()?.nodes.length) {
     add("fit","Fit diagram","View",fit,"⌘0");
     add("export","Export PNG…","Document",exportDialog,"⌘E");
+    add("export-pdf","Export PDF…","Document",exportBoardPDFDialog);
   }
   add("actual","Actual size","View",()=>zoom(1),"⌘⇧0");
   add("new","New document…","Document",newDoc,"⌘N");

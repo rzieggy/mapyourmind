@@ -23,15 +23,22 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 | Edit a node's text | Double-click it |
 | Shapes | ⌘1–6: rectangle, decision, start/end, note, circle, input/output |
 | Find any action | **⌘K**, type what you want, press Enter |
+| Find text in a Board or Notes | **⌘F**, Enter / Shift Enter for next / previous, Esc to close |
 | Connect two shapes | Hover a shape and drag from one of its dots to another shape |
 | Comment on a node | ⌘⌥C |
 | Style defaults | ⌘, |
 | Export as PNG | ⌘E |
+| Export a Board as PDF | Document title ▾ → **Export PDF…**, or ⌘K → "Export PDF" |
 | Pan / fit to screen | Space + drag / ⌘0 |
 | Undo / redo | ⌘Z / ⌘⇧Z |
 | All shortcuts | ⌘K, then "Show keyboard shortcuts" |
 
 Everything saves automatically.
+
+Board PDFs use a high-resolution (3×) image on a page sized to your content. Choose the whole board or current
+selection, with a white or transparent background. Text in Board PDFs is part of the image; Notes PDFs keep selectable
+text. Find searches element text and connector labels, including collapsed branches, and opens a branch when you visit
+its match. Comments are excluded.
 
 ## Open mapyourmind in your browser (for screen sharing)
 
@@ -52,7 +59,7 @@ While the tab is open, the app window shows a short status screen instead of you
 - If your Mac sleeps or gets busy, the tab shows "Reconnecting…". Keep working; it saves when the connection is back.
 - The first time you paste, the browser asks for clipboard permission. Click **Allow**.
 - In the browser, ⌘1–6 and ⌘N switch tabs and open windows instead. Use the shape buttons on the left and the **+** button instead.
-- Exporting Notes as PDF only works in the app. Diagrams export as PNG in both.
+- Exporting Boards or Notes as PDF only works in the app. Diagrams export as PNG in both.
 
 ## Where your data lives
 

@@ -2197,3 +2197,25 @@ select:focus-visible {
 .sticker-dropdown-heading button:hover {
   background: var(--rail-hover);
 }
+#findBar {
+  position:absolute; top:16px; right:16px; z-index:35; width:340px;
+  display:flex; align-items:center; gap:4px; padding:7px 8px;
+  background:#fff; border:1px solid #E6E7EB; border-radius:11px;
+  box-shadow:0 5px 20px #15233b18; font-size:12px;
+}
+#findBar[hidden] { display:none; }
+#workspace.is-notebook #stage > #findBar { display:flex !important; }
+#workspace.is-notebook #stage > #findBar[hidden] { display:none !important; }
+#workspace.is-notebook #stage > #findHighlights { display:block !important; }
+#findBar > svg { width:16px; height:16px; flex:none; fill:none; stroke:#73737d; stroke-width:1.8; }
+#findInput { width:0; flex:1; min-width:35px; padding:5px 3px; border:0; outline:0; font-size:12px; background:transparent; }
+#findInput:focus-visible { box-shadow:inset 0 -2px #2474D0; }
+#findBar.no-results #findInput { color:#c93838; box-shadow:inset 0 -2px #c93838; }
+#findCount { white-space:nowrap; color:#73737d; font-size:11px; }
+#findBar button { border:0; padding:4px; min-width:24px; height:28px; border-radius:5px; background:transparent; font-size:13px; }
+#findBar button:hover { background:#f3f5f8; }
+#findBar button[aria-pressed="true"] { background:#EAF2FC; color:#2474D0; }
+#findBar button:focus-visible { outline:2px solid #2474D0; outline-offset:1px; }
+#findHighlights { position:absolute; inset:0; pointer-events:none; z-index:25; }
+.find-note-ring { position:absolute; border:2px solid #F5B400; border-radius:3px; }
+.find-note-ring.current { border-color:#2474D0; box-shadow:0 0 9px #2474D044; }

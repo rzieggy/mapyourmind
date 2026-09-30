@@ -46,6 +46,26 @@ Phases, in order: 1 shell layout · 2 style panel + context bar + right-click me
   a click there grabs the port, as it did before the gap. Environment note: on a 1× display (external 1080p as main
   screen) two older assertions fail on clean HEAD too: integration "A long label wraps …" (field scrollWidth 159 vs
   clientWidth 157) and feedback "Active text editor renders at native zoom …" (width rounded to 103 vs 102.6).
+- [x] Phase 4a (2026-10-01): Command F opens a floating, panel-aware Find bar for Boards and Notes; selected node
+  text is prefilled and selected, Enter/Shift Enter and previous/next wrap, Aa toggles match case, and Escape keeps
+  the current element/text selected. Board matches include connector labels and hidden descendants, exclude comments,
+  and open collapsed ancestors only when visited; navigation pans/zooms into the usable viewport. Current matches
+  have a blue ring/glow, other matches amber, and no-results marks the field red. Notes uses DOM Range overlays without
+  changing stored HTML or undo history, stays below the formatting toolbar, and searches across inline formatting.
+  Find is also in the native Edit menu and contextual command catalog.
+  Board Export PDF is directly below Export PNG in the title menu and available in Command K and native File.
+  Whole-board/selection and white/transparent options render a bounded 3× raster on a content-sized single PDF page,
+  sharing the Notes native save panel and atomic write path. Connector-only selections work; content bounds include
+  labels. Collapsed descendants, collapse badges, selection/hover helpers and Find rings are excluded. Native raster
+  validation, oversized-board refusal, Cancel/Escape during preparation and failure cleanup are covered. Native
+  save-panel cancellation keeps the Notes behavior. No schema/default/version changes. Vector/selectable Board PDF text remains a follow-up; Notes PDFs
+  retain their selectable-text path. PDF export stays app-only, as for Notes; browser mode shows a Back to app message.
+  Clean-HEAD → final assertions: integration 479→479, schema 11→11, navigation 77→108, notebook 52→62, feedback 75→75,
+  Program A 588→588, Program B 604→604; Node cases 35→35. Storage passes; browser hook smoke 3→3 checks. Final sweep
+  passes in one run. Two interim label/caret failures passed on rerun; neither baseline 1× assertion failed here.
+  Inspected Find board/no-results/Notes, PDF menu/dialog, command menu and Phase 2 panel/context/picker snapshots, plus
+  four rendered Board PDFs (whole white/transparent, selected node, selected connector); PDF alpha masks verified.
+  Detailed evidence and remaining limits: `verification/phase4a.md`; local logs/snapshots: `.runlogs/phase4a/`.
 
 ---
 

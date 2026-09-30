@@ -125,5 +125,27 @@ assert($("importMindmap").classList.contains("secondary")&&$("importMindmap").qu
 const a=$("importMindmap").getBoundingClientRect(),b=$("newDoc").getBoundingClientRect();
 assert(Math.abs(a.top-b.top)<2&&b.left>a.right,"Import sits beside New document");
 await native("snapshot",{name:"home"});
+
+await switchSidebarDocument(note.id);
+noteBody.innerHTML='<p>Mango <b>mango</b> and <i>Man</i>go</p><p>Other text</p>';syncNotebook();
+const findNoteHTML=current.note.html,findNoteUndo=noteUndo.length;
+await window.appCommand('find');
+assert(!findBar.hidden&&document.activeElement===$('findInput')&&getComputedStyle(findBar).display!=='none','Notes Command F opens the same floating Find bar');
+assert(findBar.getBoundingClientRect().top>=$('noteToolbar').getBoundingClientRect().bottom+15,'Notes Find stays below the formatting toolbar');
+$('findInput').value='mango';$('findInput').dispatchEvent(new Event('input'));
+assert(findMatches.length===3&&$('findCount').textContent==='1 of 3'&&findHighlights.children.length>=3,'Notes Find counts text occurrences across inline formatting and shows overlay rings');
+$('findInput').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+assert(findIndex===1&&$('findCount').textContent==='2 of 3','Notes Enter advances the current match');
+$('findInput').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true,cancelable:true}));
+assert(findIndex===0,'Notes Shift Enter moves to the previous match');
+$('findCase').click();assert(findMatches.length===1,'Notes Aa searches with matching case');
+$('findCase').click();$('toast').hidden=true;await wait(80);await native('snapshot',{name:'phase4a-find-notes'});
+$('findInput').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+assert(findBar.hidden&&!findHighlights.children.length&&document.activeElement===noteBody&&getSelection().toString()==='Mango','Notes Escape keeps the current text match selected and ready to edit');
+assert(current.note.html===findNoteHTML&&noteBody.innerHTML===findNoteHTML&&noteUndo.length===findNoteUndo,'Notes Find overlays never change stored HTML or undo history');
+assert(commandCatalog().some(c=>c.id==='find'&&c.label==='Find in note…'),'Notes command menu exposes its Find action');
+noteBody.innerHTML='<p>Man</p><p>go</p>';syncNotebook();openFind();$('findInput').value='Mango';$('findInput').dispatchEvent(new Event('input'));
+assert(!findMatches.length,'Notes Find never joins separate paragraphs into a false match');closeFind();
+
 assert(!errors.length,"No uncaught browser errors");
 return results;

@@ -104,6 +104,7 @@ function persist() {
   return saveChain;
 }
 function changed() {
+  if (typeof refreshFind === "function") refreshFind();
   revision++;
   if (current) current.updated = Date.now();
   updateSave();
@@ -311,6 +312,7 @@ async function docAction(action, id) {
     );
 }
 function openDoc(id) {
+  if (typeof closeFind === "function") closeFind(false);
   if (isNotebook()) syncNotebook();
   if (current && current.id !== id) {
     if (editing) commitEdit();
@@ -347,6 +349,7 @@ async function goHome() {
   } catch {
     return;
   }
+  if (typeof closeFind === "function") closeFind(false);
   current = null;
   selected.clear();
   $("workspace").hidden = true;
@@ -429,6 +432,7 @@ function toggleDocMenu() {
     '<div class="menu-separator"></div>' +
     (notebook ? "" : item("import", "import", "Import mind map…")) +
     item("export", "export", notebook ? "Export PDF…" : "Export PNG…") +
+    (notebook ? "" : item("export-pdf", "export", "Export PDF…")) +
     '<div class="menu-separator"></div>' +
     item("trash", "trash", "Move to Trash", ' class="danger"') +
     '<div class="menu-separator"></div>' +
@@ -446,6 +450,7 @@ function toggleDocMenu() {
         if (action === "rename") renameTitleInPlace();
         else if (action === "import") await chooseMindmapImport();
         else if (action === "export") exportDialog();
+        else if (action === "export-pdf") exportBoardPDFDialog();
         else await docAction(action, current.id);
       } catch (error) {
         toast(error.message);
@@ -886,7 +891,7 @@ function sketchShape(n) {
   shapeCache.set(n.id, { key, drawable });
   return drawable;
 }
-function drawNode(c, n) {
+function drawNode(c, n, helpers = true) {
   if (n.kind === "sticker") { drawSticker(c, n); return; }
   if (n.kind === "image") {
     drawImageNode(c, n);
@@ -902,7 +907,7 @@ function drawNode(c, n) {
     c.restore();
   }
   if (editing?.id !== n.id) drawRichText(c, n);
-  drawCollapsedBadge(c, n);
+  if (helpers) drawCollapsedBadge(c, n);
   c.restore();
 }
 function anchor(n, side) {
@@ -1455,6 +1460,7 @@ function paint() {
       if (edgeVisible(item.edge)) drawEdge(ctx, item.edge);
     } else if (visible(item.node)) drawNode(ctx, item.node);
   }
+  if (typeof paintFind === "function") paintFind(ctx);
   for (const e of shown.edges)
     if (selected.has(e.id)) drawEdgeHandles(e);
   drawNoteBadges();
@@ -3139,13 +3145,15 @@ function exportElements(scope) {
     ),
   };
 }
-function exportBounds(part, doc = d()) {
+function exportBounds(part, doc = d(), helpers = true) {
   const boxes = [...part.nodes];
   for (const n of part.nodes) {
-    const badge = collapsedBadge(n, doc);
+    const badge = helpers && collapsedBadge(n, doc);
     if (badge) boxes.push(badge);
   }
   for (const e of part.edges) {
+    const label = labeledEdge(e, doc);
+    if (label) boxes.push(label);
     const g = edgeGeometry(e, doc);
     if (g) {
       let points = [...g.pts, g.p, g.q];
@@ -3357,6 +3365,14 @@ window.openInBrowser = async () => {
 };
 window.appCommand = async (command) => {
   try {
+    if (command === "find") { openFind(); return; }
+    if (command === "export-pdf") {
+      if (isNotebook()) await exportNotePDF(); else exportBoardPDFDialog();
+      return;
+    }
+    if (typeof findBar !== "undefined" && findBar.contains(document.activeElement) && ["all", "copy", "cut", "paste", "undo", "redo"].includes(command)) {
+      await textCommand(command); return;
+    }
     if (command === "commands") { openCommandMenu(); return; }
     if (command === "browser") { if (!window.mapyourmindBrowser) await window.openInBrowser(); return; }
     if (command === "settings") {
