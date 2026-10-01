@@ -5,6 +5,8 @@ const M = FlowModel,
   ctx = canvas.getContext("2d");
 let state = { schema: 2, documents: [] },
   current = null,
+  viewOnly = false,
+  presentationCanvas = null,
   trash = false,
   selected = new Set(),
   tool = "select",
@@ -14,7 +16,9 @@ let state = { schema: 2, documents: [] },
   editing = null,
   drag = null,
   space = false,
+  spaceTap = false,
   quick = null,
+  distanceGuides = [],
   connectorStart = null,
   hoveredNode = null,
   hoveredPort = null,
@@ -71,7 +75,8 @@ const esc = (s) =>
         c
       ],
   );
-const d = () => current?.canvas;
+// Presentation navigation uses a disposable graph; persistence always clones state.
+const d = () => viewOnly ? presentationCanvas : current?.canvas;
 function updateSave() {
   if (current)
     $("saveStatus").textContent = saveFailed
@@ -125,6 +130,7 @@ window.flushSave = async () => {
   if (loaded && (positionMoved || revision !== savedRevision)) await persist();
 };
 function mutate(fn, relayout = true) {
+  if (viewOnly) return;
   const before = M.clone(d());
   fn();
   if(relayout)M.layoutChanged(d(),before);
@@ -196,6 +202,7 @@ function confirmAction(title, description, callback) {
   };
 }
 function newDoc() {
+  if (viewOnly) return;
   if (editing) commitEdit();
   askName(
     "New document",
@@ -312,6 +319,8 @@ async function docAction(action, id) {
     );
 }
 function openDoc(id) {
+  if (viewOnly) setViewOnly(false);
+  if (typeof cancelStickerPlacement === "function") cancelStickerPlacement();
   if (typeof closeFind === "function") closeFind(false);
   if (isNotebook()) syncNotebook();
   if (current && current.id !== id) {
@@ -337,6 +346,7 @@ function openDoc(id) {
   syncMode();
   setTool("select");
   openNotebook();
+  if (typeof syncPresentationUI === "function") syncPresentationUI();
   resize();
   inspect();
   updateSave();
@@ -350,6 +360,7 @@ async function goHome() {
     return;
   }
   if (typeof closeFind === "function") closeFind(false);
+  if (viewOnly) setViewOnly(false);
   current = null;
   selected.clear();
   $("workspace").hidden = true;
@@ -385,7 +396,7 @@ $("docTitle").ondblclick = () => {
   renameTitleInPlace();
 };
 function renameTitleInPlace() {
-  if (!current) return;
+  if (!current || viewOnly) return;
   const title = $("docTitle"),
     input = document.createElement("input");
   input.className = "title-input";
@@ -427,14 +438,14 @@ function toggleDocMenu() {
       `<button role="menuitem" data-doc-action="${action}"${extra}>${icon(iconName)}<span>${label}</span></button>`;
   const menu = $("docMenu");
   menu.innerHTML =
-    item("rename", "pencil", "Rename") +
+    (viewOnly ? "" : item("rename", "pencil", "Rename") +
     item("duplicate", "copy", "Duplicate") +
     '<div class="menu-separator"></div>' +
-    (notebook ? "" : item("import", "import", "Import mind map…")) +
+    (notebook ? "" : item("import", "import", "Import mind map…"))) +
     item("export", "export", notebook ? "Export PDF…" : "Export PNG…") +
     (notebook ? "" : item("export-pdf", "export", "Export PDF…")) +
     '<div class="menu-separator"></div>' +
-    item("trash", "trash", "Move to Trash", ' class="danger"') +
+    (viewOnly ? "" : item("trash", "trash", "Move to Trash", ' class="danger"')) +
     '<div class="menu-separator"></div>' +
     `<div class="menu-info">${esc(count)}<br>Edited ${esc(edited)}</div>`;
   const box = $("docTitle").getBoundingClientRect();
@@ -503,9 +514,12 @@ function cancelDrag() {
   hoveredNode = null;
   hoveredPort = null;
   guides = [];
+  distanceGuides = [];
   render();
 }
 function setTool(t) {
+  if (viewOnly && !["select", "hand"].includes(t)) return;
+  if (typeof cancelStickerPlacement === "function") cancelStickerPlacement();
   if (editing) commitEdit();
   hoveredNode = null;
   hoveredPort = null;
@@ -526,6 +540,7 @@ function setTool(t) {
     text: "Click anywhere to write",
     connector: "Drag from a connection point to another shape",
   }[t];
+  if (viewOnly) syncPresentationUI();
   render();
 }
 // Listed in the order of their ⌘1 to ⌘6 shortcuts.
@@ -601,6 +616,7 @@ function resize() {
   render();
   positionEditor();
   positionStickerDropdown();
+  if (typeof clearLaser === "function") clearLaser();
 }
 window.addEventListener("resize", resize);
 function point(e) {
@@ -702,8 +718,12 @@ function circleTextInset(n) {
 }
 function textWrapWidth(n) {
   if (n.kind === "label") return Math.max(1, n.wrapWidth);
+  if (M.isText(n) && !n.attachmentTo) return Math.max(1, n.w - 8);
   if (n.shape === "note") return Math.max(1, n.w - 40);
-  return Math.max(1, n.w - (n.attachmentTo ? 16 : n.shape === "circle" ? 2 * circleTextInset(n) : n.shape === "decision" ? n.w * 0.4 : 28));
+  return Math.max(1, n.w - (n.attachmentTo ? 16 : n.shape === "circle" ? 2 * circleTextInset(n) : n.shape === "decision" ? n.w * 0.4 : n.shape === "process" ? 20 : 28));
+}
+function textPaddingY(n) {
+  return n.attachmentTo ? 4 : M.isText(n) ? 3 : n.shape === "process" ? 6 : 12;
 }
 function fitCircle(n) {
   let low = Math.max(80, n.w, n.h);
@@ -754,6 +774,7 @@ function textLines(c, n) {
 // so a node lined up with its neighbours stays lined up. Resizing by handle
 // still calls autoSize directly and keeps its dragged edge.
 function reflow(n, minimumHeight = 0) {
+  if (M.isText(n) && !n.attachmentTo) minimumHeight = 0;
   if (n.kind !== "flow" || n.attachmentTo) { autoSize(n); n.h = Math.max(n.h, minimumHeight); return; }
   const cx = n.x + n.w / 2,
     cy = n.y + n.h / 2;
@@ -801,10 +822,10 @@ function autoSize(n) {
   if (n.shape === "circle" && n.kind !== "text") return fitCircle(n);
   const lines = textLines(ctx, n);
   n.h = Math.max(
-    n.attachmentTo ? 26 : n.kind === "text" ? 40 : 66,
-    lines.length * n.fontSize * 1.15 + (n.attachmentTo ? 8 : 24),
+    n.attachmentTo ? 26 : M.isText(n) ? 1 : n.shape === "process" ? 32 : 66,
+    Math.ceil(lines.length * n.fontSize * 1.15 + textPaddingY(n) * 2),
   );
-  if (n.shape === "decision") n.h = Math.max(110, n.h * 1.35);
+  if (n.shape === "decision" && !M.isText(n)) n.h = Math.max(110, n.h * 1.35);
 }
 const roughGenerator = rough.generator();
 const roughCanvases = new WeakMap();
@@ -898,7 +919,7 @@ function drawNode(c, n, helpers = true) {
     return;
   }
   c.save();
-  if (n.kind !== "text") {
+  if (!M.isText(n)) {
     const shape = sketchShape(n);
     c.save();
     c.translate(n.x, n.y);
@@ -1593,11 +1614,13 @@ function paint() {
     ctx.stroke();
   }
   ctx.setLineDash([]);
+  drawDistanceGuides();
+  drawStickerPreview();
   $("emptyHint").hidden = d().nodes.length > 0;
   $("zoomValue").textContent = Math.round(view.z * 100) + "%";
   $("undo").disabled = !history.past.length;
   $("redo").disabled = !history.future.length;
-  if (typeof syncContextBar === "function") syncContextBar();
+
 }
 function rect(a, b) {
   return {
@@ -1762,7 +1785,7 @@ function resizeSelection(p) {
     } else {
       const requested = n.h;
       autoSize(n);
-      n.h = Math.max(requested, n.h);
+      if (!M.isText(n)) n.h = Math.max(requested, n.h);
     }
     for (const label of d().nodes.filter((a) => a.attachmentTo === n.id)) {
       label.w = n.w;
@@ -1772,6 +1795,7 @@ function resizeSelection(p) {
   M.syncAttachments(d());
 }
 function drawHandles(handles) {
+  if (viewOnly) return;
   ctx.fillStyle = "#ffffff";
   for (const { x, y } of handles) {
     ctx.fillRect(x - 3 / view.z, y - 3 / view.z, 6 / view.z, 6 / view.z);
@@ -1932,6 +1956,7 @@ function paintOrder(nodes, edges) {
   ].sort((a, b) => a.at - b.at);
 }
 function drawEdgeHandles(e) {
+  if (viewOnly) return;
   const bend = bendHandle(e);
   if (bend) {
     ctx.save();
@@ -1970,6 +1995,7 @@ function hitEdgeHandle(p) {
   return null;
 }
 function hoverPortsNode() {
+  if (viewOnly) return null;
   if (drag?.type === "connect" || drag?.type === "endpoint") return null;
   if (d()?.edges.some((e) => selected.has(e.id))) return null;
   return d()?.nodes.find((n) => n.id === hoveredNode) || null;
@@ -2013,15 +2039,24 @@ canvas.addEventListener("pointerdown", (e) => {
   const p = point(e),
     s = screenPoint(e);
   const noteNode = hitNoteBadge(p);
-  if (noteNode) {
+  if (noteNode && !viewOnly) {
     if (notesNodeId === noteNode.id) closeNotes();
     else openNotes(noteNode.id);
     return;
   }
   if (space || tool === "hand" || e.button === 1) {
+    spaceTap = false;
     drag = { type: "pan", screen: s, view: { ...view } };
     if (e.isTrusted) canvas.setPointerCapture(e.pointerId);
     return;
+  }
+  if (viewOnly) {
+    const hit = hitNode(p) || hitEdgeLabel(p) || hitEdge(p);
+    if (hit) {
+      if (e.shiftKey) selected.has(hit.id) ? selected.delete(hit.id) : selected.add(hit.id);
+      else selected = new Set([hit.id]);
+    } else if (!e.shiftKey) selected.clear();
+    inspect(); render(); return;
   }
   const resizeHit = hitResizeHandle(p);
   if (resizeHit?.group) {
@@ -2203,6 +2238,7 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 canvas.addEventListener("pointermove", (e) => {
   const p = point(e);
+  if (viewOnly && !drag) return;
   if (drag?.type === "bend") {
     const link = d().edges.find((a) => a.id === drag.id);
     if (link) {
@@ -2286,12 +2322,13 @@ canvas.addEventListener("pointermove", (e) => {
       dy = p.y - drag.start.y;
     drag.moved ||= Math.hypot(dx, dy) > 2 / view.z;
     guides = [];
+  distanceGuides = [];
     const n = d().nodes.find((n) => n.id === drag.id),
       original = drag.positions.get(n.id);
     if (n.kind !== "mind" && !e.metaKey) {
       const threshold = 6 / view.z,
-        others = d().nodes.filter(
-          (a) => !drag.ids.has(a.id) && a.kind !== "mind",
+        others = visibleCanvas().nodes.filter(
+          (a) => !drag.ids.has(a.id),
         );
       let bestX = threshold,
         bestY = threshold,
@@ -2335,6 +2372,9 @@ canvas.addEventListener("pointermove", (e) => {
       a.x = o.x + dx;
       a.y = o.y + dy;
     }
+    const shown = visibleCanvas().nodes;
+    distanceGuides = measureDistances(M.bounds(shown.filter(a => drag.ids.has(a.id))), shown.filter(a => !drag.ids.has(a.id)), 500 / view.z);
+    if (n.kind === "mind") guides = moveAlignmentGuides(M.bounds(shown.filter(a => drag.ids.has(a.id))), shown.filter(a => !drag.ids.has(a.id)), 6 / view.z);
     hover = null;
     if (n.kind === "mind" && [...selected].every(id => M.attached(d(), M.subtree(d(), n.id)).has(id))) {
       const target = [...visibleCanvas().nodes]
@@ -2409,7 +2449,7 @@ canvas.addEventListener("pointermove", (e) => {
     } else {
       const requestedHeight = n.h;
       autoSize(n);
-      n.h = Math.max(requestedHeight, n.h);
+      if (!M.isText(n)) n.h = Math.max(requestedHeight, n.h);
     }
     n.x = left ? o.x + o.w - n.w : o.x;
     n.y = top ? o.y + o.h - n.h : o.y;
@@ -2432,6 +2472,7 @@ canvas.addEventListener("pointerup", (e) => {
     p = point(e);
   drag = null;
   guides = [];
+  distanceGuides = [];
   if (canvas.hasPointerCapture(e.pointerId))
     canvas.releasePointerCapture(e.pointerId);
   if (g.type === "pan") {
@@ -2545,10 +2586,11 @@ canvas.addEventListener("pointercancel", () => {
   drag = null;
   hover = null;
   guides = [];
+  distanceGuides = [];
   render();
 });
 canvas.addEventListener("dblclick", (e) => {
-  if (editing) return;
+  if (editing || viewOnly) return;
   const p = point(e),
     n = hitNode(p);
   if (n) {
@@ -2565,7 +2607,9 @@ canvas.addEventListener("dblclick", (e) => {
   }
 });
 function beginEdit(n, options = {}) {
+  if (viewOnly) return;
   if (["image", "sticker"].includes(n.kind)) return;
+  if (M.isText(n)) autoSize(n);
   if (n.shape === "circle" && n.kind !== "text") fitCircle(n);
   editing = {
     id: n.id,
@@ -2595,7 +2639,7 @@ function positionEditor() {
     // editor could wrap earlier than the canvas measured, or clip its last line
     // behind its own overflow. The slack trails the text rather than shifting
     // it, so what is being typed stays where it will be drawn.
-    const width = Math.max(n.w, n.fontSize * 3 + labelPadX * 2) + 2 + labelSlack;
+    const width = Math.max(n.w, n.fontSize * 3 + labelPadX * 2) + 3 + labelSlack;
     editor.style.left = (n.x + n.w / 2 - width / 2) * view.z + view.x + "px";
     editor.style.top = (n.y - 1) * view.z + view.y + "px";
     editor.style.width = width * scale + "px";
@@ -2616,11 +2660,11 @@ function positionEditor() {
   editor.style.paddingTop =
     (n.kind === "label"
       ? labelPadY
-      : Math.max(n.attachmentTo ? 4 : 12, (n.h - textLines(ctx, n).length * n.fontSize * 1.15) / 2)) * scale +
+      : Math.max(textPaddingY(n), (n.h - textLines(ctx, n).length * n.fontSize * 1.15) / 2)) * scale +
     "px";
   editor.style.paddingLeft = editor.style.paddingRight =
     (n.kind === "label" ? labelPadX : Math.max(0, (n.w - textWrapWidth(n)) / 2)) * scale + "px";
-  editor.style.paddingBottom = (n.kind === "label" ? labelPadY : n.attachmentTo ? 4 : 8) * scale + "px";
+  editor.style.paddingBottom = (n.kind === "label" ? labelPadY : textPaddingY(n)) * scale + "px";
   editor.style.transform = "none";
   for(const key of ["left","top","width","height"])editor.style[key]=Math.round(parseFloat(editor.style[key])*devicePixelRatio)/devicePixelRatio+"px";
 }
@@ -2741,6 +2785,7 @@ function toggleList(numbered) {
   t.dispatchEvent(new Event("input"));
 }
 function extendNode(n, child) {
+  if (viewOnly) return;
   const before = M.clone(d()),
     m = M.extend(d(), n.id, child);
   if (!m) return;
@@ -2757,17 +2802,13 @@ function ensureVisible(n) {
   changedView(); render();
 }
 function inspect() {
-  if (isNotebook()) { $("inspector").hidden = true; return; }
+  if (isNotebook() || viewOnly) { $("inspector").hidden = true; return; }
   renderNotes();
   const ns = d()?.nodes.filter((n) => selected.has(n.id)) || [],
     es = d()?.edges.filter((e) => selected.has(e.id)) || [],
     n = ns[0],
     e = es[0];
   $("inspector").hidden = (!ns.length && !es.length) || !!notesNodeId;
-  $("nodeNotesBtn").hidden = ns.length !== 1;
-  $("nodeNotesBtn").textContent = n?.notes?.length
-    ? `Comments (${noteCount(n)})`
-    : "Comment ⌘⌥C";
   if (!ns.length && !es.length) return;
   $("selectionLabel").textContent =
     selected.size > 1
@@ -2846,10 +2887,9 @@ function inspect() {
   }
   syncCustomSwatch($("fillCustom"), n?.fill);
   syncStrokeControls();
-  window.syncDefaultButton?.();
 }
 for (const button of $("textAlignment").querySelectorAll("button"))
-  button.onclick = () => styleSelection("textAlign", button.dataset.align);
+  button.onclick = () => applyTextAlignment(button.dataset.align);
 for (const color of M.colors) {
   const b = document.createElement("button");
   b.className = "swatch";
@@ -3041,6 +3081,7 @@ function duplicate() {
   });
 }
 function undo() {
+  if (viewOnly) return;
   if (isNotebook()) { notebookUndo(); return; }
   if (editing) commitEdit();
   current.canvas = history.undo(d());
@@ -3051,6 +3092,7 @@ function undo() {
   inspect();
 }
 function redo() {
+  if (viewOnly) return;
   if (isNotebook()) { notebookUndo(true); return; }
   if (editing) commitEdit();
   current.canvas = history.redo(d());
@@ -3062,8 +3104,8 @@ function redo() {
 }
 $("undo").onclick = undo;
 $("redo").onclick = redo;
-$("duplicateBtn").onclick = duplicate;
-$("deleteBtn").onclick = removeSelection;
+
+
 async function copyEditable(cut = false) {
   if (!selected.size) return;
   const part = M.selection(d(), [...selected], true);
@@ -3119,6 +3161,7 @@ function insertVisible(part, key, options = {}) {
   canvas.focus();
 }
 async function pasteEditable() {
+  if (viewOnly) return;
   const clip = await native("clipboardRead");
   let part;
   try {
@@ -3297,7 +3340,8 @@ function help() {
       ["Enter / Shift Enter", "Send comment / new line in comments"],
       ["Square handles", "Resize a selected node from its sides or corners"],
       ["⌘ B · ⌘ U · ⌘ H", "Bold · underline · highlight"],
-      ["Right-click a parent", "Collapse / expand branch"],
+      ["⌘ ⇧ L / E / R", "Align text left / centre / right"],
+      ["Space", "Collapse / expand selected branches"],
       ["⌘ V", "Paste an image or text from clipboard"],
       ["⌘ G · ⌘ ⇧ G", "Group · ungroup"],
       ["⌘ ⇧ 7 / 8", "Numbered / bulleted list while editing"],
@@ -3305,7 +3349,7 @@ function help() {
       ["⌘ 1 – ⌘ 6", "Rectangle · decision · start / end · note · circle · input / output"],
       ["⌘ 0 · ⌘ ⇧ 0", "Fit diagram · 100% zoom"],
       ["⌘ ,", "Defaults for new shapes and connectors"],
-      ["⌘ K", "Search commands"],
+
       ["Option + drag", "Duplicate while dragging"],
     ]
       .map(
@@ -3365,6 +3409,8 @@ window.openInBrowser = async () => {
 };
 window.appCommand = async (command) => {
   try {
+    if (command === "view-only") { setViewOnly(!viewOnly); return; }
+    if (command === "pointer") { toggleLaser(); return; }
     if (command === "find") { openFind(); return; }
     if (command === "export-pdf") {
       if (isNotebook()) await exportNotePDF(); else exportBoardPDFDialog();
@@ -3373,17 +3419,19 @@ window.appCommand = async (command) => {
     if (typeof findBar !== "undefined" && findBar.contains(document.activeElement) && ["all", "copy", "cut", "paste", "undo", "redo"].includes(command)) {
       await textCommand(command); return;
     }
-    if (command === "commands") { openCommandMenu(); return; }
+    if (viewOnly && !["copy", "image", "all", "fit", "actual", "in", "out", "export", "browser"].includes(command)) return;
+    if (command === "commands") return;
     if (command === "browser") { if (!window.mapyourmindBrowser) await window.openInBrowser(); return; }
     if (command === "settings") {
       if (!$("modal").open) defaultsPanel();
       return;
     }
     if (isNotebook() && await notebookCommand(command)) return;
+    if (command.startsWith("text-align-")) { applyTextAlignment(command.slice(11)); return; }
     if (command === "import") { await chooseMindmapImport(); return; }
     if (await featureCommand(command)) return;
     if (await textCommand(command)) return;
-    if ($("modal").open || $("commandMenu").open) return;
+    if ($("modal").open) return;
     if (command === "new") {
       newDoc();
       return;
@@ -3445,19 +3493,21 @@ window.addEventListener("keydown", (e) => {
     e.isComposing ||
     e.keyCode === 229 ||
     ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName) ||
-    $("modal").open || $("commandMenu").open ||
+    $("modal").open ||
     !current
   )
     return;
   const cmd = e.metaKey || e.ctrlKey;
   if (e.key === " ") {
     e.preventDefault();
+    // A tap toggles the selected branches; holding it to drag still pans.
+    if (!space) spaceTap = true;
     space = true;
     canvas.style.cursor = "grab";
     return;
   }
   if (cmd) {
-    if (!e.shiftKey && !e.altKey && shapeForKey(e)) {
+    if (!viewOnly && !e.shiftKey && !e.altKey && shapeForKey(e)) {
       e.preventDefault();
       shapeShortcut(shapeForKey(e));
       return;
@@ -3490,7 +3540,7 @@ window.addEventListener("keydown", (e) => {
     }
     if (key === "g") {
       e.preventDefault();
-      grouping(e.shiftKey);
+      if (!viewOnly) grouping(e.shiftKey);
     }
     return;
   }
@@ -3516,11 +3566,13 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.key === "Backspace" || e.key === "Delete") {
     e.preventDefault();
+    if (viewOnly) return;
     removeSelection();
     return;
   }
   if (["Tab", "Enter"].includes(e.key)) {
     e.preventDefault();
+    if (viewOnly) return;
     if (e.repeat) return;
     const n = d().nodes.find((n) => selected.has(n.id));
     if (n && selected.size === 1 && n.kind !== "image")
@@ -3530,6 +3582,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   const key = e.key.toLowerCase();
+  if (viewOnly && !["v", "h"].includes(key)) return;
   if (
     {
       v: "select",
@@ -3555,6 +3608,9 @@ window.addEventListener("keyup", (e) => {
   if (e.key === " ") {
     space = false;
     canvas.style.cursor = tool === "hand" ? "grab" : "default";
+    if (viewOnly) syncPresentationUI();
+    if (spaceTap && !editing && current && !isNotebook()) toggleSelectedBranches();
+    spaceTap = false;
   }
 });
 window.addEventListener("blur", () => {
@@ -3562,11 +3618,12 @@ window.addEventListener("blur", () => {
   // test drives drags across awaits, so a passing window focus change would
   // silently roll one back; the harness opts out.
   if (window.uiTest) return;
-  space = false;
+  space = spaceTap = false;
   if (drag?.before) current.canvas = drag.before;
   drag = null;
   hover = null;
   guides = [];
+  distanceGuides = [];
 });
 // Only monotonic time from the same boot can expire Trash. Across a reboot,
 // count the current boot conservatively; wall-clock changes never age documents.

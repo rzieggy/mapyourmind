@@ -156,7 +156,7 @@
       x,
       y,
       w: kind === "text" ? 230 : 180,
-      h: kind === "text" ? 48 : shape === "circle" ? 180 : 76,
+      h: kind === "text" ? 28 : shape === "circle" ? 180 : kind === "flow" && shape === "process" ? 34 : 76,
       text,
       fill:
         shape === "note"
@@ -186,6 +186,10 @@
     return d.nodes
       .filter((n) => n.parent === id)
       .sort((a, b) => a.order - b.order);
+  }
+  // Text children retain mind-map identity and use only existing schema-3 styles.
+  function isText(n) {
+    return n.kind === "text" || n.kind === "mind" && n.shape === "process" && n.fill === "transparent" && n.stroke === "transparent";
   }
   function attached(d, ids) {
     const result = new Set(ids);
@@ -466,16 +470,9 @@
     // An absent optional field means the legacy renderer default, not the new-element preference.
     for (const key of visualProperties) if (n[key] === undefined) delete m[key];
     Object.assign(m, visualStyle(n));
-    // Start / end marks where a flow begins or ends, and a mind map's root
-    // heads its tree, so the node created after either is a step: it takes the
-    // shape chosen for after Start / end (a rectangle unless changed) with that
-    // shape's default fill and size. Everything else is still inherited. A root
-    // counts while it keeps the root shape. Zieggy's decision, kept over PRD 17.2.
-    const rootShape = defaults.mindRoot?.shape || "pill",
-      terminator =
-        n.shape === "pill"
-          ? n.kind === "flow" || parent !== null
-          : n.kind === "mind" && !n.parent && child && n.shape === rootShape;
+    // Flow Start / end uses the configured successor's shape, fill and size.
+    // Mind-map descendants use compact text below; other styles remain inherited.
+    const terminator = n.kind === "flow" && n.shape === "pill";
     if (terminator) {
       const step = node("flow", 0, 0, defaults.afterTerminator || "process");
       Object.assign(m, { shape: step.shape, fill: step.fill, w: step.w, h: step.h });
@@ -489,6 +486,10 @@
     }
     if (n.kind === "mind") {
       m.parent = parent;
+      if (parent) {
+        Object.assign(m, {shape: "process", fill: "transparent", stroke: "transparent", fillStyle: "solid", h: Math.ceil(m.fontSize * 1.15 + 6)});
+        if (!n.parent) m.textAlign = "left";
+      }
       if (child) n.collapsed = false;
       m.order = child ? children(d, n.id).length : n.order + 0.5;
       if (!m.parent) {
@@ -590,6 +591,7 @@
       subtree(d, id).has(target)
     )
       return false;
+    const previous = d.edges.find(e => e.tree && e.to === id);
     d.edges = d.edges.filter((e) => !(e.tree && e.to === id));
     n.parent = target;
     p.collapsed = false;
@@ -600,7 +602,7 @@
       tree: true,
       style: "curved",
       arrow: false,
-      stroke: n.stroke,
+      stroke: previous?.stroke || "#1b1b1f",
     });
     normalizeOrder(d);
     layout(d);
@@ -999,6 +1001,7 @@
     blank,
     node,
     children,
+    isText,
     subtree,
     layout,
     connect,

@@ -1,5 +1,4 @@
 "use strict";
-let recentCommands = [], commandMatches = [], commandIndex = 0;
 // Open in Browser in the app; Back to app in a tab that the app opened.
 function addBrowserCommand(add) {
   if (!window.mapyourmindBrowser) add("browser", "Open in Browser", "Document", () => window.openInBrowser());
@@ -21,6 +20,12 @@ function commandCatalog() {
     add("help", "Show keyboard shortcuts", "Help", help);
     return commands;
   }
+  if (viewOnly) {
+    if (selected.size) add("copy", "Copy", "View", copyEditable, "⌘C");
+    add("fit", "Fit diagram", "View", fit, "⌘0");
+    add("find", "Find in board…", "View", openFind, "⌘F");
+    return commands;
+  }
   for (const [id,label,shortcut] of [["select","Select tool","V"],["hand","Pan tool","H"],["shape","Shape tool","R"],["mind","Mind-map root tool","M"],["text","Text tool","T"],["connector","Connector tool","C"]])
     add("tool-"+id,label,"Tools",()=>setTool(id),shortcut);
   add("find", "Find in board…", "Edit", openFind, "⌘F");
@@ -32,9 +37,12 @@ function commandCatalog() {
   if (history.past.length) add("undo","Undo","Edit",undo,"⌘Z");
   if (history.future.length) add("redo","Redo","Edit",redo,"⌘⇧Z");
   add("paste","Paste","Edit",pasteEditable,"⌘V");
-  if (nodes.length) {
-    add("duplicate","Duplicate","Object",duplicate,"⌘D");
+  if (selected.size) {
     add("copy","Copy","Edit",copyEditable,"⌘C");
+    add("cut","Cut","Edit",()=>copyEditable(true),"⌘X");
+    add("duplicate","Duplicate","Object",duplicate,"⌘D");
+  }
+  if (nodes.length) {
     for (const [action,label] of [["front","Bring to front"],["forward","Bring forward"],["backward","Send backward"],["back","Send to back"]])
       add("layer-"+action,label,"Arrange",()=>layerSelection(action));
     if (nodes.length === 1 && !nodes[0].attachmentTo && ["flow","mind"].includes(nodes[0].kind)) {
@@ -71,58 +79,5 @@ function commandCatalog() {
   const priority = edges.length ? "Connector" : nodes.length ? "Object" : "Tools";
   return commands.sort((a,b)=>(a.category===priority?0:1)-(b.category===priority?0:1));
 }
-function openCommandMenu() {
-  if (!current || $("modal").open || $("templatePicker")?.open) return;
-  if ($("commandMenu").open) { closeCommandMenu(); return; }
-  if (drag) cancelDrag();
-  closeContextMenu();
-  if (editing) commitEdit();
-  if (isNotebook()) syncNotebook();
-  $("commandSearch").value="";
-  $("commandMenu").showModal();
-  updateCommandResults(); $("commandSearch").focus();
-}
-function closeCommandMenu() { $("commandMenu").close(); (isNotebook() ? $("noteBody") : canvas).focus(); }
-function updateCommandResults() {
-  const query=$("commandSearch").value.trim().toLowerCase(), all=commandCatalog();
-  commandMatches=all.filter(c=>(c.label+" "+c.category).toLowerCase().includes(query));
-  if (!query) commandMatches.sort((a,b)=>{
-    const rank=c=>recentCommands.includes(c.id)?recentCommands.indexOf(c.id):-1;
-    const x=rank(a),y=rank(b);return (x<0?100:x)-(y<0?100:y);
-  });
-  commandIndex=0;
-  const results=$("commandResults");results.replaceChildren();let category="";
-  for (const [i,c] of commandMatches.entries()) {
-    const group=!query && recentCommands.includes(c.id)?"Recently used":c.category;
-    if(group!==category){const h=document.createElement("h3");h.textContent=group;results.append(h);category=group;}
-    const b=document.createElement("button");b.id="command-result-"+i;b.role="option";b.tabIndex=-1;
-    const label=document.createElement("span"),key=document.createElement("kbd");label.textContent=c.label;key.textContent=c.shortcut;b.append(label,key);
-    b.onclick=()=>runCommandAt(i);results.append(b);
-  }
-  if(!commandMatches.length) results.textContent="No matching commands.";
-  highlightCommand();
-}
-function highlightCommand() {
-  [...$("commandResults").querySelectorAll("button")].forEach((b,i)=>b.setAttribute("aria-selected",String(i===commandIndex)));
-  $("commandSearch").setAttribute("aria-activedescendant",commandMatches.length?"command-result-"+commandIndex:"");
-  $("command-result-"+commandIndex)?.scrollIntoView({block:"nearest"});
-}
-async function runCommandAt(index) {
-  const command=commandMatches[index];if(!command)return;
-  closeCommandMenu();
-  try { await command.run(); recentCommands=[command.id,...recentCommands.filter(id=>id!==command.id)].slice(0,6); }
-  catch(error){toast(error.message||"Could not run this command.");}
-}
-$("closeCommands").onclick=closeCommandMenu;
-$("commandSearch").oninput=updateCommandResults;
-$("commandMenu").addEventListener("cancel",e=>{e.preventDefault();closeCommandMenu();});
-$("commandMenu").addEventListener("keydown",e=>{
-  e.stopPropagation();
-  if(e.key==="Escape"){e.preventDefault();closeCommandMenu();}
-  if(["ArrowDown","ArrowUp"].includes(e.key)) {e.preventDefault();if(commandMatches.length)commandIndex=(commandIndex+(e.key==="ArrowDown"?1:commandMatches.length-1))%commandMatches.length;highlightCommand();}
-  if(e.key==="Enter" && e.target!==$("closeCommands")){e.preventDefault();runCommandAt(commandIndex);}
-  if(e.key==="Tab"){e.preventDefault();(document.activeElement===$("commandSearch")?$("closeCommands"):$("commandSearch")).focus();}
-});
-document.addEventListener("keydown",e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"&&!e.isComposing){e.preventDefault();e.stopImmediatePropagation();openCommandMenu();}
-},true);
+// The catalog also supplies contextual actions; the command palette is disabled.
+function openCommandMenu() {}

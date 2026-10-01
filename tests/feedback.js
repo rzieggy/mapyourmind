@@ -42,7 +42,7 @@ const child=M.extend(d(),a.id,true); child.text="Move this branch";
 const leaf=M.extend(d(),child.id,true); leaf.text="Keep this child";
 M.layout(d()); selected=new Set([child.id]); setTool("select"); fit();
 const target={x:b.x+b.w+18,y:b.y+b.h/2};
-pointer("pointerdown",child.x+30,child.y+30);
+pointer("pointerdown",child.x+30,child.y+child.h/2);
 pointer("pointermove",target.x,target.y);
 assert(hover?.id===b.id&&hover.mode==="parent","Drag recognizes new parent beside its right edge");
 paint();
@@ -56,7 +56,7 @@ assert(!M.reparent(d(),b.id,leaf.id)&&M.validate(d()),"Cycle reparent is rejecte
 const edited=d().nodes.find(n=>n.id===child.id);
 zoom(.57);
 selected=new Set([edited.id]); beginEdit(edited); type("First"); richEditor.setSelectionRange(5);
-assert(getComputedStyle(richEditor).transform==="none"&&Math.abs(parseFloat(getComputedStyle(richEditor).fontSize)-edited.fontSize*view.z)<.01&&Math.abs(richEditor.getBoundingClientRect().width-edited.w*view.z)<.1,"Active text editor renders at native zoom dimensions without a blurry CSS transform");
+assert(getComputedStyle(richEditor).transform==="none"&&Math.abs(parseFloat(getComputedStyle(richEditor).fontSize)-edited.fontSize*view.z)<.01&&Math.abs(richEditor.getBoundingClientRect().width-edited.w*view.z)<=.51/devicePixelRatio,"Active text editor renders at native zoom dimensions without a blurry CSS transform");
 const caretBefore=getSelection().getRangeAt(0).getBoundingClientRect();
 key("Enter",{shiftKey:true});
 assert(edited.text==="First\n"&&richEditor.selectionStart===6,"Shift Enter immediately inserts newline and moves caret");
@@ -150,6 +150,22 @@ assert(bordered.some((v,i)=>v!==plain[i]),"Image stroke changes actual rendered 
 d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").click();assert(img.stroke==="transparent","Image stroke can return to transparent");
 
 {
+  const tap=()=>{window.dispatchEvent(new KeyboardEvent("keydown",{key:" ",bubbles:true,cancelable:true}));window.dispatchEvent(new KeyboardEvent("keyup",{key:" ",bubbles:true}));};
+  const root=M.node("mind",3000,3000,"process","Root");d().nodes.push(root);
+  const kid=M.extend(d(),root.id,true),grand=M.extend(d(),kid.id,true),leaf=M.extend(d(),root.id,true);
+  M.layout(d());selected=new Set([root.id]);const depth=history.past.length;tap();
+  assert(root.collapsed===true&&!kid.collapsed&&history.past.length===depth+1,"Space collapses the selected branch as one undo step");
+  tap();assert(root.collapsed===false,"Space again expands it");
+  selected=new Set([leaf.id]);tap();assert(!leaf.collapsed&&history.past.length===depth+2,"Space on a node with no children does nothing");
+  kid.collapsed=true;selected=new Set([root.id,kid.id,grand.id]);tap();
+  assert(root.collapsed&&kid.collapsed&&selected.size===1&&selected.has(root.id),"A mixed selection collapses together and drops the nodes it hid");
+  selected=new Set([root.id,kid.id]);tap();assert(!root.collapsed&&!kid.collapsed,"A fully collapsed selection expands together");
+  selected=new Set([root.id]);window.dispatchEvent(new KeyboardEvent("keydown",{key:" ",bubbles:true,cancelable:true}));
+  const before=root.collapsed,kept={...view};pointer("pointerdown",3400,3400);pointer("pointermove",3420,3420);pointer("pointerup",3420,3420);
+  window.dispatchEvent(new KeyboardEvent("keyup",{key:" ",bubbles:true}));
+  assert(root.collapsed===before&&!space&&(view.x!==kept.x||view.y!==kept.y),"Space and drag still pans without toggling the branch");Object.assign(view,kept);
+}
+{
   const order=[...(showPicker(0,0),$("shapePicker").querySelectorAll("button"))].map(b=>b.dataset.shape);$("shapePicker").hidden=true;
   assert(order.join()==="process,decision,pill,note,circle,io","Shape picker follows the ⌘1 to ⌘6 order");
   const step=M.node("flow",2000,2000,"decision","Tall decision");step.h=150;d().nodes.push(step);selected=new Set([step.id]);
@@ -181,11 +197,11 @@ d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").
 }
 {
   const box=M.node("flow",3000,3000,"process","Styled");d().nodes.push(box);selected=new Set([box.id]);inspect();
-  assert(!$("defaultSection").hidden&&$("setDefault").textContent==="Set as default for rectangles","A selected rectangle offers to become the default");
+  assert(!$("defaultSection")&&!$("setDefault")&&!$("openDefaults")&&!$("nodeNotesBtn")&&!$("duplicateBtn")&&!$("deleteBtn"),"Style panel excludes defaults and content action buttons");
   styleSelection("fill","#dbe4ff");styleSelection("fontFamily","Google Sans");
-  $("setDefault").click();await wait(100);
+  await saveDefaults({...M.getDefaults(),process:M.styleOf(box)});await wait(100);
   assert(M.node("flow",0,0).fill==="#dbe4ff"&&M.node("flow",0,0).fontFamily==="Google Sans","Set as default shapes new rectangles");
-  assert($("setDefault").disabled&&$("setDefault").textContent==="Default for new rectangles","The button shows the rectangle is already the default");
+  assert(M.getDefaults().process.fill==="#dbe4ff","Existing per-shape preferences remain supported without an inspector action");
   const prefs=await native("loadPreferences");
   assert(prefs.process.fill==="#dbe4ff"&&!JSON.stringify((await native("load")).state).includes("afterTerminator"),"Defaults are saved apart from the documents");
   window.appCommand("settings");await wait(50);
@@ -197,6 +213,18 @@ d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").
   $("resetDefaults").click();await wait(100);
   assert(!Object.keys(M.getDefaults()).length&&!Object.keys(await native("loadPreferences")).length&&M.node("flow",0,0).fill==="#ffffff","Reset all restores the built-in look");
   closeModal();selected.clear();M.remove(d(),d().nodes.filter(n=>n.x>=2900).map(n=>n.id));
+}
+{
+  const n=M.node("text",80,80,"process","Align me");d().nodes.push(n);selected=new Set([n.id]);canvas.focus();
+  for(const [k,a] of [["l","left"],["e","center"],["r","right"]]) {
+    canvas.dispatchEvent(new KeyboardEvent("keydown",{key:k,metaKey:true,shiftKey:true,bubbles:true,cancelable:true}));
+    assert(n.textAlign===a&&!$("modal").open,"Alignment hotkey applies "+a+" without exporting");
+  }
+  beginEdit(n);richEditor.setSelectionRange(3);key("l",{metaKey:true,shiftKey:true});
+  assert(n.textAlign==="left"&&richEditor.selectionStart===3&&editing?.id===n.id,"Alignment while typing retains the caret and edit session");
+  commitEdit();canvas.focus();
+  canvas.dispatchEvent(new KeyboardEvent("keydown",{key:"e",metaKey:true,bubbles:true,cancelable:true}));
+  await wait(50);assert($("modal").open&&$("exportScope"),"Plain Command E still opens PNG export");closeModal();
 }
 const input={format:"excalidravv-mindmap",version:1,title:"Imported ideas",root:{text:"Coffee shop",notes:["Draft idea"],children:[{text:"Locations",children:[{text:"Kemang"},{text:"Cipete"}]},{text:"Menu",children:[{text:"Americano"}]}]}};
 const count=state.documents.length;

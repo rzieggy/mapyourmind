@@ -34,6 +34,7 @@ function commentKeydown(e) {
   if (!e.repeat) e.currentTarget.form?.requestSubmit();
 }
 function openNotes(nodeId) {
+  if (viewOnly) return;
   if (editing) commitEdit();
   notesNodeId = nodeId;
   selected.clear();
@@ -105,10 +106,6 @@ function renderNotes() {
         ),
       );
 }
-$("nodeNotesBtn").onclick = () => {
-  const n = d().nodes.find((n) => selected.has(n.id));
-  if (n) openNotes(n.id);
-};
 $("closeNotes").onclick = closeNotes;
 $("newNoteText").onkeydown = commentKeydown;
 $("newNoteText").oninput = (e) => {

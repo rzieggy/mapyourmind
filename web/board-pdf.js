@@ -1,7 +1,7 @@
 "use strict";
 let boardPDFExporting = false;
 function exportBoardPDFDialog() {
-  if (!current || isNotebook() || boardPDFExporting || $('modal').open || $('commandMenu').open) return;
+  if (!current || isNotebook() || boardPDFExporting || $('modal').open) return;
   if (window.mapyourmindBrowser) { toast("Exporting as PDF only works in the mapyourmind app. Use Back to app, then export."); return; }
   if (editing) commitEdit();
   if (!d().nodes.length) { toast("The canvas is empty. Add an element first."); return; }

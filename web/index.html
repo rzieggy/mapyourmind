@@ -46,11 +46,12 @@
           ><span id="saveStatus" class="save-status">Saved on this Mac</span>
         </div>
         <div class="header-right">
+          <button id="viewOnlyToggle" class="presentation-button" aria-pressed="false">View only</button>
+          <button id="laserPointer" class="presentation-button" aria-pressed="false" hidden><span class="laser-dot"></span>Pointer</button>
           <button id="importMindmapCanvas" hidden>Import</button>
           <button id="exportOpen" class="export-button">
             <span data-icon="export"></span>Export PNG
           </button>
-          <button id="openSettings" class="icon-button" title="Settings (⌘,)" aria-label="Settings" data-icon="gear"></button>
         </div>
       </header>
       <aside id="documentSidebar" aria-label="Documents">
@@ -60,6 +61,7 @@
         </div>
         <nav id="sidebarDocumentList" aria-label="Local documents"></nav>
         <div id="sidebarTrash">
+          <button id="openSettings" title="Settings (⌘,)" aria-label="Settings"><span data-icon="gear"></span><span>Settings</span></button>
           <button id="sidebarTrashToggle" aria-expanded="false" aria-controls="sidebarTrashList"><span data-icon="trash"></span><span class="sidebar-trash-label">Trash</span><span id="sidebarTrashCount"></span></button>
           <nav id="sidebarTrashList" aria-label="Documents in Trash" hidden></nav>
         </div>
@@ -71,6 +73,7 @@
           tabindex="0"
           aria-label="Diagram canvas. Choose a tool to start drawing."
         ></canvas>
+        <canvas id="laserCanvas" aria-hidden="true" hidden></canvas>
         
         
         
@@ -201,16 +204,7 @@
               <button data-layer="back">To back</button>
             </div>
           </div>
-          <div id="defaultSection" class="default-tools">
-            <button id="setDefault" class="wide-button">Set as default</button>
-            <button id="openDefaults" class="text-button">All defaults ⌘,</button>
-          </div>
-          <button id="nodeNotesBtn" class="wide-button">Comment ⌘⌥C</button
-          ><button id="groupBtn" class="wide-button">Group ⌘G</button
-          ><button id="duplicateBtn" class="wide-button">Duplicate ⌘D</button
-          ><button id="deleteBtn" class="wide-button danger">
-            Delete elements
-          </button>
+          <button id="groupBtn" class="wide-button">Group ⌘G</button>
         </aside>
         <aside
           id="notesPanel"
@@ -262,13 +256,6 @@
         <div class="bottom-hint" id="contextHint">
           Hover a shape to connect · Space to pan
         </div>
-        <div id="contextBar" role="toolbar" aria-label="Mind-map actions" hidden>
-          <button data-bar="arrange" class="bar-primary"><span data-icon="arrange"></span>Arrange tree</button
-          ><span class="bar-divider"></span
-          ><button data-bar="child">Add child<kbd>Tab</kbd></button
-          ><span class="bar-divider"></span
-          ><button data-bar="comment">Comment<kbd>⌘⌥C</kbd></button>
-        </div>
         <div id="canvasControls">
           <div class="control-group history-control">
             <button id="undo" title="Undo (⌘Z)" aria-label="Undo" data-icon="undo"></button
@@ -291,7 +278,7 @@
     <div id="docMenu" role="menu" aria-label="Document" hidden></div>
     <div id="toast" role="status" hidden></div>
     <dialog id="modal"><div id="modalBody"></div></dialog>
-    <dialog id="commandMenu" aria-labelledby="commandTitle"><div class="command-header"><h2 id="commandTitle">Search commands</h2><button id="closeCommands" aria-label="Close commands">×</button></div><input id="commandSearch" type="text" placeholder="Search tools, actions, and settings…" aria-label="Search commands" role="combobox" aria-controls="commandResults" aria-expanded="true" autocomplete="off"><div id="commandResults" role="listbox" aria-label="Commands"></div></dialog>
+
     <script src="vendor/rough.js"></script>
     <script src="icons.js"></script>
     <script src="model.js"></script>
@@ -308,5 +295,6 @@
     <script src="commands.js"></script>
     <script src="find.js"></script>
     <script src="board-pdf.js"></script>
+    <script src="presentation.js"></script>
   </body>
 </html>

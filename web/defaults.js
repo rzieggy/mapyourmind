@@ -22,32 +22,6 @@ async function saveDefaults(next) {
     toast(e.message);
   }
 }
-function selectedDefaultElement() {
-  if (selected.size !== 1 || !d()) return null;
-  const [id] = selected;
-  return d().nodes.find((n) => n.id === id) || d().edges.find((e) => e.id === id) || null;
-}
-function syncDefaultButton() {
-  const element = selectedDefaultElement(),
-    entry = element && M.defaultEntry(element);
-  $("defaultSection").hidden = !entry;
-  if (!entry) return;
-  const chosen = M.getDefaults()[entry],
-    same = !!chosen && M.same(chosen, M.styleOf(element));
-  $("setDefault").textContent = same
-    ? `Default for new ${defaultPlural[entry]}`
-    : `Set as default for ${defaultPlural[entry]}`;
-  $("setDefault").disabled = same;
-}
-$("setDefault").onclick = async () => {
-  const element = selectedDefaultElement(),
-    entry = element && M.defaultEntry(element);
-  if (!entry) return;
-  await saveDefaults({ ...M.getDefaults(), [entry]: M.styleOf(element) });
-  syncDefaultButton();
-  toast(`New ${defaultPlural[entry]} will look like this.`);
-};
-$("openDefaults").onclick = () => defaultsPanel();
 // A preview is drawn with the canvas's own renderer, so it shows exactly what
 // a new element will look like.
 function drawDefaultPreview(holder, entry) {
@@ -84,7 +58,7 @@ function defaultsPanel() {
   const chosen = M.getDefaults(),
     after = chosen.afterTerminator || "process";
   showModal(
-    `<h2>Defaults for new elements</h2><p>Style an element, then choose <b>Set as default</b> in its style panel. Tab and Enter still copy the node you start from, except after a Start / end or a mind-map root.</p>
+    `<h2>Defaults for new elements</h2><p>Review or reset saved creation styles here. Tab and Enter inherit flowchart styles; new mind-map children use text.</p>
     <label class="defaults-after">After Start / end<select id="afterTerminatorChoice">${shapeLabels
       .map(([key, , label]) => `<option value="${key}"${key === after ? " selected" : ""}>${label}</option>`)
       .join("")}</select></label>
@@ -111,11 +85,11 @@ function defaultsPanel() {
       delete next[b.dataset.reset];
       await saveDefaults(next);
       defaultsPanel();
-      syncDefaultButton();
+
     };
   $("resetDefaults").onclick = async () => {
     await saveDefaults({});
     defaultsPanel();
-    syncDefaultButton();
+
   };
 }

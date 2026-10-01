@@ -22,18 +22,30 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 | Add a child / sibling node | Select a node, press **Tab** (child) or **Enter** (sibling), then type |
 | Edit a node's text | Double-click it |
 | Shapes | ⌘1–6: rectangle, decision, start/end, note, circle, input/output |
-| Find any action | **⌘K**, type what you want, press Enter |
+| Node actions | Right-click a node or selection |
 | Find text in a Board or Notes | **⌘F**, Enter / Shift Enter for next / previous, Esc to close |
 | Connect two shapes | Hover a shape and drag from one of its dots to another shape |
 | Comment on a node | ⌘⌥C |
 | Style defaults | ⌘, |
 | Export as PNG | ⌘E |
-| Export a Board as PDF | Document title ▾ → **Export PDF…**, or ⌘K → "Export PDF" |
+| Export a Board as PDF | Document title ▾ → **Export PDF…**, or File → Export PDF… |
+| Collapse / expand a branch | Select its parent, tap **Space** |
 | Pan / fit to screen | Space + drag / ⌘0 |
+| Align node text | **⌘⇧L / ⌘⇧E / ⌘⇧R**: left / center / right |
+| Present a Board | **View only** in the header; **Pointer** for a fading red trail |
+| Place a sticker | Pick a sticker, move the preview, click to place; **Esc** cancels |
 | Undo / redo | ⌘Z / ⌘⇧Z |
-| All shortcuts | ⌘K, then "Show keyboard shortcuts" |
+| All shortcuts | **?** button at the bottom right |
 
-Everything saves automatically.
+Everything saves automatically. Mind-map roots keep their rounded shape; new children and descendants are text
+without a border or background. Free text keeps an adjustable width and fits its height to the content. During a
+move, blue guides show nearby edge-to-edge distances in canvas pixels.
+
+View only keeps selection, pan, zoom, Find and branch collapse available. Collapse and Find expansions in this mode
+are temporary; **Back to editing** restores the saved branch state. Turn on **Pointer**, hold the mouse button and
+draw a trail or circle; it fades within 800ms and never becomes part of your diagram or export. Space-drag still pans.
+The editing tools return when you exit. Settings is at the bottom of the document sidebar, above Trash.
+The Command K action palette is disabled; Notes still uses Command K for links.
 
 Board PDFs use a high-resolution (3×) image on a page sized to your content. Choose the whole board or current
 selection, with a white or transparent background. Text in Board PDFs is part of the image; Notes PDFs keep selectable
@@ -44,7 +56,7 @@ its match. Comments are excluded.
 
 Some meeting apps only let you share a browser tab, not an app window. Browser mode opens mapyourmind in a browser tab so you can share just that tab. It shows the same documents, and changes save to your Mac as usual.
 
-**To start:** choose **File → Open in Browser** (or press ⌘K and type "browser"). mapyourmind saves your work and opens a tab. Share that tab in your meeting.
+**To start:** choose **File → Open in Browser**. mapyourmind saves your work and opens a tab. Share that tab in your meeting.
 
 While the tab is open, the app window shows a short status screen instead of your documents. That way only one place edits at a time.
 

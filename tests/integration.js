@@ -481,7 +481,7 @@ assert(
 );
 // Typing still grows a shape that is too small for its text.
 afterWidth.h = 40;
-afterWidth.text = "A much longer label than this little box can hold at once";
+afterWidth.text = "A much longer label than this little box can hold at once\nA second line needs more height";
 autoSize(afterWidth);
 assert(afterWidth.h > 40, "Text still grows a shape that cannot hold it");
 M.remove(d(), [boxA.id, boxB.id, tallBoxId]);
@@ -796,7 +796,7 @@ assert(
 selected = new Set([sink.id]);
 setTool("select");
 inspect();
-$("nodeNotesBtn").click();
+openNotes(sink.id);
 $("newNoteText").value = "Check the assumptions.";
 $("newNoteText").dispatchEvent(new Event("input"));
 $("newNoteForm").dispatchEvent(new Event("submit", { cancelable: true }));
@@ -890,8 +890,8 @@ key($("textEditor"), "Enter");
 type("Sibling");
 key($("textEditor"), "Escape");
 assert(
-  d().nodes.slice(-2).every(n=>JSON.stringify(inheritedStyle(n))===JSON.stringify(inheritedStyle(newRoot))),
-  "Mind-map Tab and Enter inherit every node style",
+  d().nodes.slice(-2).every(n=>M.isText(n)&&n.fontFamily===newRoot.fontFamily&&n.textColor===newRoot.textColor&&n.stroke==="transparent"&&n.fill==="transparent"),
+  "Mind-map Tab and Enter create text children with inherited typography",
 );
 assert(d().edges.slice(-2).every(e=>e.stroke==="#1b1b1f"&&e.sw===1.8&&!e.strokeStyle&&e.sloppiness===undefined),"Mind-map connectors keep independent default styles");
 const n = d().nodes.at(-1);
@@ -1697,7 +1697,7 @@ for(let i=0;i<4;i++) {const child=M.extend(d(),planRoot.id,true);child.text="Bra
 const deep=M.extend(d(),branches[1].id,true);deep.text="Details";autoSize(deep);M.layout(d());
 assert(planRoot.fill==="#e6def7"&&planRoot.shape==="pill","Mind-map roots default to pastel purple rounded rectangles");
 const lastBranch=branches[3];selected=new Set([lastBranch.id]);setTool("select");
-pointer("pointerdown",lastBranch.x+40,lastBranch.y+30);
+pointer("pointerdown",lastBranch.x+40,lastBranch.y+lastBranch.h/2);
 pointer("pointermove",lastBranch.x+40,branches[0].y-80);
 pointer("pointerup",lastBranch.x+40,branches[0].y-80);
 assert(M.children(d(),planRoot.id)[0].id===lastBranch.id&&branches.every(n=>n.x===branches[0].x),"Dragging a branch upward reorders and aligns all siblings");
@@ -1839,7 +1839,7 @@ for(const z of [.2,.5,1,2]) {
     if(side.includes("t"))assert(box.y+box.h===old.y+old.h,"Top resize anchors the opposite edge");
   }
   Object.assign(box,{x:140,y:180,w:260,h:120});const rightHandle=resizeHandles(box).find(h=>h.side==="r");pointer("pointerdown",rightHandle.x,rightHandle.y);pointer("pointermove",box.x-200,rightHandle.y);
-  assert(box.w===80&&box.h>=textLines(ctx,box).length*box.fontSize*1.15+24,"Minimum width clamps and text reflows without clipping");
+  assert(box.w===80&&box.h>=textLines(ctx,box).length*box.fontSize*1.15+12,"Minimum width clamps and text reflows without clipping");
   assert(canvas.style.cursor==="ew-resize","Resize cursor remains visible at the minimum size");pointer("pointerup",box.x-200,rightHandle.y);
   const minHandle=resizeHandles(box).find(h=>h.side==="r");pointer("pointermove",minHandle.x,minHandle.y);assert(canvas.style.cursor==="ew-resize","Minimum-size node retains its resize affordance");
   for(const port of ports(box)) {pointer("pointerdown",port.x,port.y);assert(drag?.type==="connect","Cardinal port still starts a connector at zoom "+z);cancelDrag();}

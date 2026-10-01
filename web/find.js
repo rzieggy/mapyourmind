@@ -12,7 +12,7 @@ findHighlights.setAttribute("aria-hidden", "true");
 $('stage').append(findHighlights);
 let findMatches = [], findIndex = -1, findDocument = null;
 function openFind() {
-  if (!current || $('modal').open || $('commandMenu').open) return;
+  if (!current || $('modal').open) return;
   if (editing) commitEdit();
   if (drag) cancelDrag();
   closeContextMenu(); closeDocMenu();
@@ -115,7 +115,7 @@ function activateFindMatch() {
     let n = byId.get(id);
     while (n?.parent) { n = byId.get(n.parent); if (n?.collapsed) collapsed.add(n); }
   }
-  if (collapsed.size) mutate(() => { for (const n of collapsed) n.collapsed = false; }, false);
+  if (collapsed.size) navigateBranches(() => { for (const n of collapsed) n.collapsed = false; }, false);
   selected = new Set([match.id]);
   setTool('select'); inspect(); positionFind();
   const box = findBox(match); if (!box) return;
@@ -166,7 +166,7 @@ document.addEventListener('keydown', e => {
   if (e.isComposing || e.keyCode === 229) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
     e.preventDefault(); e.stopImmediatePropagation(); openFind();
-  } else if (!findBar.hidden && e.key === 'Escape' && !$('modal').open && !$('commandMenu').open) {
+  } else if (!findBar.hidden && e.key === 'Escape' && !$('modal').open) {
     e.preventDefault(); e.stopImmediatePropagation(); closeFind();
   } else if (!findBar.hidden && e.target === $('findInput') && e.key === 'Enter') {
     e.preventDefault(); e.stopImmediatePropagation(); moveFind(e.shiftKey ? -1 : 1);

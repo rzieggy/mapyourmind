@@ -2,6 +2,66 @@
 function visibleCanvas() {
   return M.visible(d());
 }
+function measureDistances(box, others, limit = Infinity) {
+  const nearest = new Map();
+  const add = (side, axis, from, to, cross) => {
+    const gap = Math.abs(to - from);
+    if (gap > limit || nearest.has(side) && nearest.get(side).gap <= gap) return;
+    nearest.set(side, {side, axis, from, to, cross, gap});
+  };
+  for (const other of others) {
+    const top = Math.max(box.y, other.y), bottom = Math.min(box.y + box.h, other.y + other.h);
+    const left = Math.max(box.x, other.x), right = Math.min(box.x + box.w, other.x + other.w);
+    if (top < bottom) {
+      if (other.x >= box.x + box.w) add("right", "x", box.x + box.w, other.x, (top + bottom) / 2);
+      if (other.x + other.w <= box.x) add("left", "x", other.x + other.w, box.x, (top + bottom) / 2);
+    }
+    if (left < right) {
+      if (other.y >= box.y + box.h) add("bottom", "y", box.y + box.h, other.y, (left + right) / 2);
+      if (other.y + other.h <= box.y) add("top", "y", other.y + other.h, box.y, (left + right) / 2);
+    }
+  }
+  for (const [a, b] of [["left", "right"], ["top", "bottom"]]) {
+    if (nearest.has(a) && nearest.has(b) && Math.abs(nearest.get(a).gap - nearest.get(b).gap) < 0.5)
+      nearest.get(a).equal = nearest.get(b).equal = true;
+  }
+  return [...nearest.values()];
+}
+function moveAlignmentGuides(box, others, threshold) {
+  const guides = new Map();
+  for (const axis of ["x", "y"]) {
+    const size = axis === "x" ? "w" : "h";
+    let best = threshold;
+    for (const other of others) for (const a of [0, 0.5, 1]) for (const b of [0, 0.5, 1]) {
+      const value = other[axis] + other[size] * b, delta = Math.abs(box[axis] + box[size] * a - value);
+      if (delta < best) { best = delta; guides.set(axis, {axis, value}); }
+    }
+  }
+  return [...guides.values()];
+}
+function drawDistanceGuides() {
+  if (!distanceGuides.length) return;
+  ctx.save(); ctx.setLineDash([]); ctx.lineWidth = 1 / view.z;
+  ctx.strokeStyle = "#2474d0"; ctx.font = `${11 / view.z}px "Google Sans"`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const g of distanceGuides) {
+    const x = g.axis === "x" ? (g.from + g.to) / 2 : g.cross;
+    const y = g.axis === "y" ? (g.from + g.to) / 2 : g.cross;
+    const text = `${Math.round(g.gap * 10) / 10} px${g.equal ? " =" : ""}`;
+    ctx.beginPath();
+    for (const at of [g.from, g.to]) {
+      if (g.axis === "x") { ctx.moveTo(at, g.cross - 4 / view.z); ctx.lineTo(at, g.cross + 4 / view.z); }
+      else { ctx.moveTo(g.cross - 4 / view.z, at); ctx.lineTo(g.cross + 4 / view.z, at); }
+    }
+    if (g.axis === "x") { ctx.moveTo(g.from, g.cross); ctx.lineTo(g.to, g.cross); }
+    else { ctx.moveTo(g.cross, g.from); ctx.lineTo(g.cross, g.to); }
+    ctx.stroke();
+    const width = ctx.measureText(text).width + 8 / view.z;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(x - width / 2, y - 9 / view.z, width, 18 / view.z);
+    ctx.fillStyle = "#2474d0"; ctx.fillText(text, x, y);
+  }
+  ctx.restore();
+}
 function curveDistance(e, g) {
   // Keep controls inside the gap between depth columns; never double back.
   if (e.tree)
@@ -59,11 +119,26 @@ function drawCollapsedBadge(c, n) {
 function toggleCollapse(n) {
   if (!M.children(d(), n.id).length) return;
   if (editing) commitEdit();
-  mutate(() => {
+  navigateBranches(() => {
     n.collapsed = !n.collapsed;
     selected = new Set([n.id]);
     hoveredNode = null;
   });
+}
+// Space on a selection: if any selected branch is open they all close,
+// otherwise they all open. Selected nodes that end up hidden are deselected.
+function toggleSelectedBranches() {
+  const ns = d().nodes.filter((n) => selected.has(n.id) && M.children(d(), n.id).length);
+  if (!ns.length) return false;
+  const collapse = ns.some((n) => !n.collapsed);
+  navigateBranches(() => {
+    for (const n of ns) n.collapsed = collapse;
+    const shown = M.visible(d()),
+      ids = new Set([...shown.nodes, ...shown.edges].map((a) => a.id));
+    selected = new Set([...selected].filter((id) => ids.has(id)));
+    hoveredNode = null;
+  });
+  return true;
 }
 const contextMenu = document.getElementById("nodeContextMenu");
 function clearCanvasNativeSelection() {
@@ -80,8 +155,25 @@ function clearCanvasNativeSelection() {
 }
 function placeContextMenu(e) {
   contextMenu.hidden = false;
-  contextMenu.style.left = Math.min(e.clientX, innerWidth - 240) + "px";
+  contextMenu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - contextMenu.offsetWidth - 8)) + "px";
   contextMenu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - contextMenu.offsetHeight - 8)) + "px";
+}
+function appendContextActions(ids) {
+  for (const action of commandCatalog().filter(a => ids.includes(a.id))) {
+    const button = document.createElement("button");
+    button.role = "menuitem";
+    button.dataset.context = action.id;
+    button.textContent = action.label;
+    button.onclick = async () => {
+      closeContextMenu();
+      try { await action.run(); } catch (error) { toast(error.message); }
+    };
+    contextMenu.append(button);
+  }
+}
+function arrangeSelectedTree(n) {
+  mutate(() => M.tidy(d(), [M.treeRoot(d(), n).id]));
+  toast("Tree arranged. Manual positions reset.");
 }
 function closeContextMenu() {
   contextMenu.hidden = true;
@@ -94,10 +186,30 @@ canvas.addEventListener("contextmenu", (e) => {
   if (editing) commitEdit();
   const p = point(e),
     n = hitNode(p);
+  if (viewOnly) {
+    const hit = n || hitEdge(p);
+    if (hit && !selected.has(hit.id)) selected = new Set([hit.id]);
+    contextMenu.replaceChildren();
+    appendContextActions(hit ? ["copy", "fit"] : ["fit"]);
+    if (n && M.children(d(), n.id).length) {
+      const button = document.createElement("button");
+      button.role = "menuitem"; button.dataset.context = "collapse";
+      button.textContent = n.collapsed ? "Expand branch" : "Collapse branch";
+      button.onclick = () => { closeContextMenu(); toggleCollapse(n); };
+      contextMenu.prepend(button);
+    }
+    inspect(); render(); placeContextMenu(e); contextMenu.querySelector("button")?.focus(); return;
+  }
   if (!n) {
     const edge = hitEdge(p);
     if (!edge) {
-      closeContextMenu();
+      contextMenu.replaceChildren();
+      appendContextActions(["paste", "fit"]);
+      const all = document.createElement("button");
+      all.role = "menuitem"; all.textContent = "Select all";
+      all.onclick = () => { closeContextMenu(); window.appCommand("all"); };
+      contextMenu.append(all);
+      placeContextMenu(e); contextMenu.querySelector("button").focus();
       return;
     }
     if(!selected.has(edge.id))selected = new Set([edge.id]);
@@ -111,6 +223,7 @@ canvas.addEventListener("contextmenu", (e) => {
       (edge.label
         ? '<button role="menuitem" data-context="centreLabel">Centre label</button><button role="menuitem" data-context="clearLabel">Remove label</button>'
         : "");
+    appendContextActions(["copy", "cut", "duplicate", "delete", "edge-straight", "edge-curved", "edge-elbow", "edge-arrow"]);
     placeContextMenu(e);
     contextMenu.querySelector('[data-context="label"]').onclick = () => {
       closeContextMenu();
@@ -156,7 +269,8 @@ canvas.addEventListener("contextmenu", (e) => {
     (M.children(d(), n.id).length
       ? `<button role="menuitem" data-context="collapse">${n.collapsed ? "Expand" : "Collapse"} branch</button>`
       : "") +
-    (n.kind === "mind" ? '<button role="menuitem" data-context="arrange">Arrange mind maps</button>' : "");
+    (n.kind === "mind" ? '<button role="menuitem" data-context="arrange">Arrange tree</button>' : "");
+  appendContextActions(["copy", "cut", "duplicate", "delete", "child", "sibling", "group", "ungroup", "layer-front", "layer-forward", "layer-backward", "layer-back", "align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "align-horizontal", "align-vertical"]);
   placeContextMenu(e);
   for (const button of contextMenu.querySelectorAll("[data-direction]"))
     button.onclick = () => {
@@ -170,7 +284,7 @@ canvas.addEventListener("contextmenu", (e) => {
     openNotes(n.id);
   };
   const arrange = contextMenu.querySelector('[data-context="arrange"]');
-  if (arrange) arrange.onclick = () => { closeContextMenu(); arrangeMindMaps(); };
+  if (arrange) arrange.onclick = () => { closeContextMenu(); arrangeSelectedTree(n); };
   const collapse = contextMenu.querySelector('[data-context="collapse"]');
   if (collapse)
     collapse.onclick = () => {
@@ -190,6 +304,7 @@ document.addEventListener(
 canvas.addEventListener(
   "pointerdown",
   (e) => {
+    if (space || (viewOnly && laserActive)) return;
     if (e.button !== 0 || e.ctrlKey) {
       e.stopImmediatePropagation();
       return;
@@ -226,8 +341,20 @@ contextMenu.addEventListener("keydown", (e) => {
   }
 });
 let highlightColor = "#fff0a6";
+function applyTextAlignment(alignment) {
+  if (viewOnly || !current || !["left", "center", "right"].includes(alignment)) return;
+  if (editing) {
+    const n = elementByID(editing.id), offsets = editorOffsets();
+    if (!n || n.kind === "label") return;
+    readRichEditor(n);
+    n.textAlign = alignment;
+    richEditorLoad(n, false);
+    positionEditor(); richEditor.focus(); setEditorSelection(...offsets);
+    changed(); inspect(); render();
+  } else styleSelection("textAlign", alignment);
+}
 function applyTextFormat(property, value) {
-  if (!current) return;
+  if (!current || viewOnly) return;
   if (editing) {
     const n = elementByID(editing.id);
     if (!n) return;
@@ -301,6 +428,12 @@ document.addEventListener(
   "keydown",
   (e) => {
     if (isNotebook() || e.isComposing || !(e.metaKey || e.ctrlKey)) return;
+    if (e.shiftKey && !e.altKey && ["l", "e", "r"].includes(e.key.toLowerCase()) && !$("modal").open &&
+        (document.activeElement === richEditor || !document.activeElement?.closest("input,textarea,select,[contenteditable]"))) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      applyTextAlignment({l: "left", e: "center", r: "right"}[e.key.toLowerCase()]);
+      return;
+    }
     const key = e.key.toLowerCase(),
       command =
         e.altKey && key === "c"
@@ -400,13 +533,14 @@ function drawSticker(c, n) {
   c.fillText(n.text || "⭐", n.x + n.w / 2, n.y + n.h / 2, n.w);
   c.restore();
 }
-function insertSticker(text) {
-  const n = M.node("sticker", (canvas.clientWidth / 2 - view.x) / view.z - 16, (canvas.clientHeight / 2 - view.y) / view.z - 16, "process", text);
+function insertSticker(text, position = null) {
+  if (viewOnly) return;
+  const n = M.node("sticker", position ? position.x - 16 : (canvas.clientWidth / 2 - view.x) / view.z - 16, position ? position.y - 16 : (canvas.clientHeight / 2 - view.y) / view.z - 16, "process", text);
   n.w = n.h = 32;
   // Repeated picks stay visible instead of stacking on the same center point.
   let slot = 0;
   const origin = {x: n.x, y: n.y};
-  while (d().nodes.some(a => a.kind === "sticker" && M.overlap(n, a)) && slot < 200) {
+  while (!position && d().nodes.some(a => a.kind === "sticker" && M.overlap(n, a)) && slot < 200) {
     slot++;
     n.x = origin.x + (slot % 5) * 40;
     n.y = origin.y + Math.floor(slot / 5) * 40;
@@ -415,6 +549,51 @@ function insertSticker(text) {
   setTool("select");
   return n;
 }
+let pendingSticker = null;
+function cancelStickerPlacement() {
+  pendingSticker = null;
+}
+function startStickerPlacement(text) {
+  if (viewOnly) return;
+  if (!current || isNotebook()) return;
+  if (editing) commitEdit();
+  setTool("select");
+  toggleStickerDropdown(false);
+  pendingSticker = {text, visible: false};
+  selected.clear(); inspect(); canvas.focus();
+  canvas.style.cursor = "crosshair";
+  $("contextHint").textContent = "Click to place sticker · Escape to cancel · Space to pan";
+  render();
+}
+function drawStickerPreview() {
+  if (!pendingSticker?.visible) return;
+  const p = point(pendingSticker);
+  ctx.save(); ctx.globalAlpha = 0.65;
+  drawSticker(ctx, {text: pendingSticker.text, x: p.x - 16, y: p.y - 16, w: 32, h: 32});
+  ctx.restore();
+}
+canvas.addEventListener("pointermove", e => {
+  if (!pendingSticker) return;
+  Object.assign(pendingSticker, {clientX:e.clientX, clientY:e.clientY, visible:true});
+  if (!drag) { e.stopImmediatePropagation(); canvas.style.cursor = space ? "grab" : "crosshair"; }
+  render();
+}, true);
+canvas.addEventListener("pointerleave", () => {
+  if (pendingSticker) { pendingSticker.visible = false; render(); }
+});
+canvas.addEventListener("pointerdown", e => {
+  if (!pendingSticker || e.button !== 0 || e.ctrlKey || space) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const text = pendingSticker.text, p = point(e);
+  cancelStickerPlacement(); insertSticker(text, p); canvas.focus();
+}, true);
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || e.isComposing || $("modal").open) return;
+  if (pendingSticker || !$("stickerDropdown").hidden) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    cancelStickerPlacement(); toggleStickerDropdown(false); setTool("select"); canvas.focus();
+  }
+}, true);
 function positionStickerDropdown() {
   if ($("stickerDropdown").hidden || $("workspace").hidden) return;
   const stage = $("stage").getBoundingClientRect(), button = $("addSticker").getBoundingClientRect();
@@ -432,9 +611,7 @@ function toggleStickerDropdown(show = $("stickerDropdown").hidden) {
 }
 $("stickerOptions").innerHTML = ["⭐", "✅", "❌", "💡", "🔥", "🎯", "🚀", "⚠️", "❤️", "👍", "📌", "❓"].map(text => `<button data-sticker="${text}" aria-label="Sticker ${text}">${text}</button>`).join('');
 for (const button of $("stickerOptions").querySelectorAll('[data-sticker]')) button.onclick = () => {
-  if (editing) commitEdit();
-  insertSticker(button.dataset.sticker);
-  $("addSticker").classList.add("active");
+  startStickerPlacement(button.dataset.sticker);
 };
 $("addSticker").onclick = () => toggleStickerDropdown();
 $("closeStickerDropdown").onclick = () => toggleStickerDropdown(false);
@@ -488,52 +665,4 @@ for (const row of document.querySelectorAll(".swatches")) {
   row.addEventListener("wheel", e => {
     if (e.shiftKey && e.deltaY && !e.deltaX) { e.preventDefault(); row.scrollLeft += e.deltaY; }
   }, { passive: false });
-}
-
-// Mind-map actions float above a selection that belongs to one tree: Arrange
-// tidies only that tree; Add child and Comment act on a single node.
-function contextBarTree() {
-  if (!current || isNotebook() || editing || drag || tool !== "select") return null;
-  const ns = d().nodes.filter((n) => selected.has(n.id));
-  if (!ns.length || ns.some((n) => n.kind !== "mind")) return null;
-  const roots = new Set(ns.map((n) => M.treeRoot(d(), n).id));
-  return roots.size === 1 ? { root: [...roots][0], nodes: ns } : null;
-}
-function syncContextBar() {
-  const bar = $("contextBar"),
-    tree = contextBarTree();
-  if (!tree) {
-    bar.hidden = true;
-    return;
-  }
-  const single = tree.nodes.length === 1;
-  bar.querySelector('[data-bar="child"]').hidden = !single;
-  bar.querySelector('[data-bar="comment"]').hidden = !single;
-  for (const divider of bar.querySelectorAll(".bar-divider")) divider.hidden = !single;
-  bar.hidden = false;
-  const x0 = Math.min(...tree.nodes.map((n) => n.x)),
-    x1 = Math.max(...tree.nodes.map((n) => n.x + n.w)),
-    y0 = Math.min(...tree.nodes.map((n) => n.y)),
-    y1 = Math.max(...tree.nodes.map((n) => n.y + n.h)),
-    panel = $("inspector").hidden ? 0 : $("inspector").offsetWidth,
-    width = bar.offsetWidth,
-    height = bar.offsetHeight;
-  const centre = ((x0 + x1) / 2) * view.z + view.x;
-  let top = y0 * view.z + view.y - height - 16;
-  if (top < 8) top = y1 * view.z + view.y + 16;
-  bar.style.left = Math.max(70, Math.min(centre - width / 2, canvas.clientWidth - panel - width - 8)) + "px";
-  bar.style.top = Math.max(8, Math.min(top, canvas.clientHeight - height - 64)) + "px";
-}
-for (const button of $("contextBar").querySelectorAll("[data-bar]")) {
-  button.onpointerdown = (e) => e.preventDefault();
-  button.onclick = () => {
-    const tree = contextBarTree();
-    if (!tree) return;
-    const n = tree.nodes[0];
-    if (button.dataset.bar === "arrange") {
-      mutate(() => M.tidy(d(), [tree.root]));
-      toast("Tree arranged. Manual positions reset.");
-    } else if (button.dataset.bar === "child") extendNode(n, true);
-    else openNotes(n.id);
-  };
 }

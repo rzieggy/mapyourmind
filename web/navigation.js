@@ -94,6 +94,7 @@ function renderDocumentSidebar() {
 // No handle or grip is shown, so the row itself is the target.
 function beginSidebarReorder(e, id) {
   if (e.button !== 0 || documentSwitchPending) return;
+  if (viewOnly) { switchSidebarDocument(id); return; }
   const list = $("sidebarDocumentList"),
     row = list.querySelector(`[data-document-id="${id}"]`);
   if (!row) return;
@@ -145,6 +146,7 @@ function beginSidebarReorder(e, id) {
   };
 }
 function showDocumentMenu(e, doc, trashed) {
+  if (viewOnly) return;
   const menu = $("nodeContextMenu");
   menu.innerHTML = trashed
     ? '<button role="menuitem" data-document-action="restore">Restore</button><button role="menuitem" data-document-action="erase">Delete permanently</button>'
@@ -203,7 +205,7 @@ async function switchSidebarDocument(id) {
   } finally {
     documentSwitchPending = false;
     $("stage").inert = false;
-    $("sidebarNewDocument").disabled = false;
+    $("sidebarNewDocument").disabled = viewOnly;
     renderDocumentSidebar();
     if (isNotebook()) $("noteBody").focus(); else canvas.focus();
   }

@@ -258,11 +258,12 @@ test("same depth columns align despite varying node sizes", () => {
   M.layout(d);
   assert.equal(c.y, other.y);
 });
-test("pastel rounded roots give white rectangle children and preserve validated formatting", () => {
+test("pastel roots give text children and preserve validated formatting", () => {
   const { d, root, a } = tree();
   assert.equal(root.shape, "pill");
   assert.equal(root.fill, "#e6def7");
-  assert.equal(a.fill, "#ffffff");
+  assert.equal(a.fill, "transparent");
+  assert.equal(a.stroke, "transparent");
   assert.equal(a.shape, "process");
   a.text = "Hello";
   a.marks = [{ start: 0, end: 2, bold: true, highlight: "#fff0a6" }];
@@ -289,7 +290,8 @@ test("keyboard extension inherits the complete visual matrix and excludes metada
     const d=M.blank(), n=M.node(kind,10,20,"decision","Donor");
     Object.assign(n,{shape:"decision",w:260,h:150,fill:"transparent",fillStyle:"cross-hatch",edges:"round",strokeStyle:"dashed",stroke:"#123456",sw:3,roughness:.4,sloppiness:2,opacity:.8,fontFamily:"Arial",fontSize:34,textColor:"#445566",textAlign:"right",collapsed:true,group:"original",notes:[{id:"note",text:"private",created:1,replies:[]}],marks:[{start:0,end:5,bold:true,underline:true,highlight:"#fff0a6"}]});
     d.nodes.push(n);const m=M.extend(d,n.id,child);
-    for(const key of M.visualProperties) assert.deepEqual(m[key],n[key],kind+" "+key);
+    const textStyle={shape:"process",fill:"transparent",stroke:"transparent",fillStyle:"solid",h:Math.ceil(n.fontSize*1.15+6),textAlign:"left"};
+    for(const key of M.visualProperties) assert.deepEqual(m[key],kind==="mind"&&child&&key in textStyle?textStyle[key]:n[key],kind+" "+key);
     assert.deepEqual(m.typingStyle,{bold:true,underline:true,highlight:"#fff0a6"});
     assert.equal(m.text,"");assert.notEqual(m.id,n.id);assert.equal(m.group,null);assert.deepEqual(m.notes,[]);assert.ok(!m.collapsed);assert.equal(m.marks,undefined);
     assert.equal(m.parent,kind==="mind"&&child?n.id:null);assert.ok(M.validate(d));
@@ -309,8 +311,8 @@ test("Legacy donor appearance wins over new-element preferences",()=>{
  const doc=M.blank(),donor=M.node("mind",0,0);doc.nodes.push(donor);
  M.setDefaults({mindRoot:{fontFamily:"Google Sans",fillStyle:"cross-hatch",edges:"round",strokeStyle:"dashed",sloppiness:2}});
  // A root's child is a step (Zieggy's After Start / end rule): shape, fill, fill style and size come from that step.
- const step=["shape","fill","fillStyle","w","h"];
- try {const created=M.extend(doc,donor.id,true);for(const key of M.visualProperties.filter(k=>!step.includes(k)))assert.deepEqual(created[key],donor[key],key);assert.equal(created.shape,"process");assert.ok(M.validate(doc));}finally{M.setDefaults({});}
+ const step=["shape","fill","fillStyle","stroke","h","textAlign"];
+ try {const created=M.extend(doc,donor.id,true);for(const key of M.visualProperties.filter(k=>!step.includes(k)))assert.deepEqual(created[key],donor[key],key);assert.ok(M.isText(created));assert.ok(M.validate(doc));}finally{M.setDefaults({});}
 });
 
 test("Arrange tree tidies only the chosen tree", () => {
@@ -332,4 +334,10 @@ test("the fill palette keeps transparent first and every earlier colour", () => 
   assert.equal(M.colors[0], "transparent");
   for (const old of ["#ffffff", "#ffd43b", "#fff0a6", "#dbe4ff", "#d3f9d8", "#ffe3e3", "#e9ecef"]) assert.ok(M.colors.includes(old), old);
   for (const pastel of ["#ffe8cc", "#d0ebff", "#e5dbff"]) assert.ok(M.colors.includes(pastel), pastel);
+});
+
+test("mind-map text children keep visible tree connectors after reparenting",()=>{
+ const doc=M.blank(),root=M.node("mind",0,0);doc.nodes.push(root);const a=M.extend(doc,root.id,true),b=M.extend(doc,root.id,true),c=M.extend(doc,a.id,true);
+ assert.ok([a,b,c].every(M.isText));assert.equal(root.shape,"pill");assert.equal(root.fill,"#e6def7");
+ assert.ok(M.reparent(doc,c.id,b.id));assert.equal(doc.edges.find(e=>e.to===c.id&&e.tree).stroke,"#1b1b1f");assert.ok(M.validate(doc));
 });

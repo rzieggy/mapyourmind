@@ -105,7 +105,7 @@ textLines = (c, n) =>
 function drawRichText(c, n) {
   const lines = richLines(c, n),
     lineHeight = n.fontSize * 1.15,
-    inset = n.kind === "label" ? labelPadX : n.attachmentTo ? 8 : n.shape === "circle" ? circleTextInset(n) : n.shape === "decision" ? n.w * 0.22 : 14;
+    inset = n.kind === "label" ? labelPadX : n.shape === "decision" && !M.isText(n) ? n.w * 0.22 : (n.w - textWrapWidth(n)) / 2;
   let y = n.y + n.h / 2 - ((lines.length - 1) * lineHeight) / 2,
     lastFont = null;
   c.textAlign = "left";

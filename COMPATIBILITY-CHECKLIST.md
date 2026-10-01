@@ -1,5 +1,23 @@
 # mapyourmind project notes
 
+## Editor refinements, 2026-10-01 (override older decisions below)
+- Approved requirements: `REQUIREMENTS-EDITOR-REFINEMENTS.md`. Command K palette and floating node toolbar are disabled;
+  node/connector actions use right-click. Style panel no longer carries defaults, Comment, Duplicate or Delete buttons.
+- New mind-map children/descendants are compact text without fill/stroke, using existing schema-3 fields and preserving
+  tree identity. Existing saved nodes stay unchanged. Flowchart Start / end still uses its configured successor.
+- Sidebar text is 14px (previously 12px), Settings sits above Trash. Fill/highlight swatches are rounded rectangles,
+  28×24px, 6px radius/gap with a pinned matching custom picker. Command Shift L/E/R aligns text; Command E remains PNG.
+- Text height follows content/wrapping and shrinks; width starts at 230px and remains adjustable. Text inset is 4px/3px,
+  rectangle inset 10px/6px. Moves show transient nearest edge-gap/equal-gap rulers in canvas pixels at any zoom.
+- Space tap toggles selected branches; Space-drag pans. View only hides/disables editing controls while retaining
+  pan/zoom/selection/Find/collapse. Presentation navigation uses a disposable graph; all saves keep original collapse
+  flags and geometry. Notes has no presentation toggle. The independent laser layer fades trails within 800ms and
+  never enters storage, undo or PNG/PDF exports. Escape clears Pointer, exit/switch clears presentation state.
+- Sticker selection closes its picker and starts a cursor preview; click places once as one undo step. Escape closes
+  the picker or cancels placement, including with picker focus; tool/document/mode changes cancel too.
+- Full sweep, baseline failures, snapshots, browser UI smoke and remaining limits: `verification/editor-refinements.md`.
+  Local WIPs are squashed into one commit. No push/tag/release/install, version bump or production-data access.
+
 ## Decisions from Zieggy, 2026-09-29 (override the text below where they conflict)
 - mapyourmind is a **separate app and project** from Excalidravv, so Excalidravv 1.28 stays a working fallback.
   Bundle ID `app.mapyourmind.mac`, data in `~/Library/Application Support/mapyourmind/`. On first launch the app takes a

@@ -6,7 +6,7 @@ function buildImportedDocument(input) {
     const n = M.node("mind", 0, 0, "process", source.text);
     n.parent = parent?.id || null;
     n.order = order;
-    if (parent) { n.shape = "process"; n.fill = "#ffffff"; }
+    if (parent) { Object.assign(n, {shape:"process", fill:"transparent", stroke:"transparent", textAlign:"left"}); }
     graph.nodes.push(n);
     for (const text of source.notes) M.addNote(graph, n.id, text);
     if (parent) M.connect(graph, parent.id, n.id, { tree: true, style: "curved", arrow: false });
@@ -19,6 +19,7 @@ function buildImportedDocument(input) {
   return { id: M.uid(), title: uniqueName(file.title), mode: "mindmap", fontVersion: "excalifont-v1", connectorVersion: 3, created: Date.now(), updated: Date.now(), trashedAt: null, trashElapsed: 0, canvas: graph };
 }
 async function importMindmapText(text) {
+  if (viewOnly) return;
   if (!loaded) throw Error("Wait for local documents to finish loading.");
   const doc = buildImportedDocument(text);
   await window.flushSave();
@@ -31,7 +32,7 @@ async function importMindmapText(text) {
   return doc;
 }
 async function chooseMindmapImport() {
-  if (!loaded) return;
+  if (!loaded || viewOnly) return;
   if (editing) commitEdit();
   try {
     const file = await native("importMindmap");
