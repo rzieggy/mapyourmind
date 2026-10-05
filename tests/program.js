@@ -13,13 +13,15 @@ for(const kind of ["flow","mind"])for(const child of [true,false])for(const shap
  // After a Start / end or a root, the new node is a step: shape, fill, fill style and size come from the After Start / end default.
  const terminator=shape==="pill"&&kind==="flow",step=["shape","fill","fillStyle","w","h"];
  const textChild=kind==="mind"&&child, textStyle={shape:"process",fill:"transparent",stroke:"transparent",fillStyle:"solid",h:Math.ceil(donor.fontSize*1.15+6),textAlign:"left"};
- for(const property of M.visualProperties.filter(p=>!terminator||!step.includes(p)))assert(canonical(created[property])===canonical(textChild&&property in textStyle?textStyle[property]:donor[property]),"Approved creation style "+property+": "+kind+" "+shape+" "+child);
+ // New mind-map nodes fit their width to their text instead of inheriting it.
+ if(kind==="mind")assert(created.fitWidth===true&&created.w>=60&&created.w<=360,"New mind-map node fits its width: "+shape+" "+child);
+ for(const property of M.visualProperties.filter(p=>(!terminator||!step.includes(p))&&!(kind==="mind"&&p==="w")))assert(canonical(created[property])===canonical(textChild&&property in textStyle?textStyle[property]:donor[property]),"Approved creation style "+property+": "+kind+" "+shape+" "+child);
  if(terminator)assert(created.shape==="process"&&created.fill==="#ffffff","After Start / end gives a white rectangle: "+kind+" "+child);
  assert(!created.group&&!created.notes.length&&!created.collapsed&&created.text===""&&!created.marks,"Structural/content metadata stays excluded");
  const viewport=usableViewport();assert(M.overlap(created,viewport),"Quick creation remains visible behind current inspector/sidebar geometry");
  key(richEditor,child?"Tab":"Enter",{repeat:true});assert(d().nodes.length===2,"Held creation key never floods nodes");
  richEditor.setRangeText("Ready",0,0,"end");richEditor.dispatchEvent(new Event("input"));assert(markAt(created,0).bold&&markAt(created,0).underline&&markAt(created,0).highlight==="#fff0a6","Uniform source formatting applies to first typed text");
- commitEdit();const size=terminator?M.node("flow",0,0,"process"):donor;assert(created.w===size.w&&(textChild?created.h===Math.ceil(created.fontSize*1.15+6):created.h>=size.h),"Quick creation keeps width and uses content height for text children");const after=M.clone(d());undo();assert(M.same(d(),before),"One Undo removes creation plus initial text");redo();assert(M.same(d(),after),"Redo restores style, text and structure");
+ commitEdit();const size=terminator?M.node("flow",0,0,"process"):donor;assert((kind==="mind"||created.w===size.w)&&(textChild?created.h===Math.ceil(created.fontSize*1.15+6):created.h>=size.h),"Quick creation keeps width and uses content height for text children");const after=M.clone(d());undo();assert(M.same(d(),before),"One Undo removes creation plus initial text");redo();assert(M.same(d(),after),"Redo restores style, text and structure");
 }
 selected=new Set([d().nodes.at(-1).id]);await copyEditable();await pasteEditable();const styled=d().nodes.at(-1);assert(styled.fontFamily==="Google Sans"&&markAt(styled,0).bold&&styled.fillStyle==="cross-hatch","Copied keyboard style includes current appearance fields and rich marks");
 await window.flushSave();const savedB=await native("load");assert(canonical(savedB.state.documents.find(doc=>doc.id===testDoc.id).canvas)===canonical(d()),"Inherited style and typing metadata survive native save/reopen");

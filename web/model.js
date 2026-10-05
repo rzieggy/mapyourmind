@@ -175,6 +175,7 @@
       parent: null,
       order: 0,
       group: null,
+      ...(kind === "mind" ? { fitWidth: true } : null),
       ...(kind === "mind" && shape === "process"
         ? defaults.mindRoot
         : ["flow", "mind"].includes(kind)
@@ -210,7 +211,12 @@
     const existing = d.nodes.find(n => n.attachmentTo === id);
     if (existing) return existing;
     const n = node("flow", owner.x, owner.y - 32, "process");
-    Object.assign(n, { attachmentTo: id, fontSize: 14, h: 28, w: owner.w, fill: "#fff0a6" });
+    // A new placeholder dresses like its owner, apart from its yellow fill;
+    // its height fits one line of the owner's font size until text reflows it.
+    for (const key of ["sloppiness", "sw", "stroke", "strokeStyle", "fontFamily", "fontSize"])
+      if (owner[key] === undefined) delete n[key]; else n[key] = clone(owner[key]);
+    const size = n.fontSize ?? 14;
+    Object.assign(n, { attachmentTo: id, fontSize: size, h: Math.max(26, Math.ceil(size * 1.15 + 8)), w: owner.w, fill: "#fff0a6" });
     d.nodes.push(n);
     syncAttachments(d);
     return n;
@@ -286,37 +292,54 @@
       childMap.get(n.parent).push(n);
     }
     for (const cs of childMap.values()) cs.sort((a, b) => a.order - b.order);
-    const span = new Map();
+    // Each subtree reaches `up` before and `down` after its node's centre line
+    // on the cross axis. A placeholder only adds to `up`, so it never moves its
+    // owner: siblings make room for it, and children centre on their parent
+    // without counting the first child's own placeholder, so a single chain
+    // stays straight. Without placeholders this is the old symmetric layout.
+    const up = new Map(), down = new Map(), bare = new Map(), offsets = new Map();
     let vertical = false,
       crossSize = "h";
     function measure(n) {
       const cs = n.collapsed ? [] : childMap.get(n.id) || [];
-      const value = Math.max(
-        n[crossSize] + (vertical ? 0 : topSpace.get(n.id) || 0),
-        cs.reduce((sum, c) => sum + measure(c), 0) +
-          Math.max(0, cs.length - 1) * 32,
-      );
-      span.set(n.id, value);
-      return value;
+      for (const c of cs) measure(c);
+      const half = n[crossSize] / 2,
+        above = vertical ? 0 : topSpace.get(n.id) || 0;
+      let reachUp = 0, reachDown = 0;
+      if (cs.length) {
+        const centres = [];
+        let at = up.get(cs[0].id);
+        cs.forEach((c, i) => {
+          if (i) at += down.get(cs[i - 1].id) + 32 + up.get(c.id);
+          centres.push(at);
+        });
+        const top = centres[0] - bare.get(cs[0].id),
+          bottom = centres[centres.length - 1] + down.get(cs[cs.length - 1].id),
+          // An only child sits on its parent's line whatever its subtree holds.
+          shift = cs.length === 1 ? -centres[0] : -(top + bottom) / 2;
+        offsets.set(n.id, centres.map((value) => value + shift));
+        reachUp = -(centres[0] + shift - up.get(cs[0].id));
+        reachDown = bottom + shift;
+      }
+      up.set(n.id, Math.max(half + above, reachUp));
+      bare.set(n.id, Math.max(half, reachUp));
+      down.set(n.id, Math.max(half, reachDown));
     }
     let columns = [];
     function place(n, depth = 0) {
       const cs = n.collapsed ? [] : childMap.get(n.id) || [];
-      const total =
-        cs.reduce((sum, c) => sum + span.get(c.id), 0) +
-        Math.max(0, cs.length - 1) * 32;
-      let cross = (vertical ? n.x + n.w / 2 : n.y + n.h / 2) - total / 2;
-      for (const c of cs) {
+      const centre = vertical ? n.x + n.w / 2 : n.y + n.h / 2;
+      cs.forEach((c, i) => {
+        const at = centre + offsets.get(n.id)[i];
         if (vertical) {
-          c.x = cross + (span.get(c.id) - c.w) / 2;
+          c.x = at - c.w / 2;
           c.y = columns[depth + 1];
         } else {
           c.x = columns[depth + 1];
-          c.y = cross + (span.get(c.id) - c.h + (topSpace.get(c.id) || 0)) / 2;
+          c.y = at - c.h / 2;
         }
         place(c, depth + 1);
-        cross += span.get(c.id) + 32;
-      }
+      });
     }
     for (const n of d.nodes.filter((n) => n.kind === "mind" && !n.parent && (!rootIDs || rootIDs.has(n.id)))) {
       vertical = treeDirection(d, n) === "vertical";
@@ -806,6 +829,8 @@
       )
         return false;
       if (n.collapsed !== undefined && typeof n.collapsed !== "boolean")
+        return false;
+      if (n.fitWidth !== undefined && typeof n.fitWidth !== "boolean")
         return false;
       if (n.fillStyle !== undefined && !fillStyles.includes(n.fillStyle))
         return false;

@@ -126,9 +126,9 @@ assert(nativeSelection.rangeCount===0,"Right-click clears a stuck native canvas 
 assert(!contextMenu.hidden&&contextMenu.querySelector('[data-context="placeholder"]'),"Right-click menu offers Add placeholder");
 contextMenu.querySelector('[data-context="placeholder"]').click();type("100%");key("Escape");
 const label=d().nodes.find(n=>n.attachmentTo===flow.id);
-assert(label&&label.fill==="#fff0a6"&&label.fontSize===14&&label.h<40&&label.y+label.h<flow.y,"Placeholder is compact, yellow, extra small and above owner");
+assert(label&&label.fill==="#fff0a6"&&["sloppiness","sw","stroke","strokeStyle","fontFamily","fontSize"].every(k=>label[k]===flow[k])&&label.h<label.fontSize*1.15+12&&label.y+label.h<flow.y,"Placeholder is yellow, one line high, dressed like its owner and above it");
 beginEdit(label);type("Line one\nLine two");key("Escape");
-assert(label.h<50&&label.text==="Line one\nLine two","Placeholder supports compact multiline free text");
+assert(label.h===Math.ceil(2*label.fontSize*1.15+8)&&label.text==="Line one\nLine two","Placeholder supports compact multiline free text");
 selected=new Set([flow.id]);const oy=flow.y;
 pointer("pointerdown",flow.x+30,flow.y+30);pointer("pointermove",flow.x+130,flow.y+80);pointer("pointerup",flow.x+130,flow.y+80);
 assert(label.x===flow.x&&label.y===flow.y-label.h-4&&flow.y!==oy,"Placeholder follows owner drag");

@@ -76,6 +76,7 @@ final class LocalStore {
                 for field in ["x", "y", "w", "h"] { guard let value = node[field] as? Double, value.isFinite, (!["w", "h"].contains(field) || value > 0) else { return false } }
                 for field in ["offsetX", "offsetY"] { if let value = node[field] { guard let number = value as? Double, number.isFinite else { return false } } }
                 if let value = node["collapsed"], !(value is Bool) { return false }
+                if let value = node["fitWidth"], !(value is Bool) { return false }
                 if kind == "image" {
                     if let reference=node["imageRef"] as? String {
                         guard object["schema"] as? Int == 3, reference.range(of:"^[0-9a-f]{64}$",options:.regularExpression) != nil else { return false }

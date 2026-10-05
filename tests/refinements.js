@@ -123,5 +123,22 @@ for(let i=0;i<200&&current.id!==note.id;i++)await wait(10);
 assert(!viewOnly&&!laserActive&&!laserPoints.length&&M.same(state.documents.find(doc=>doc.id===boardId).canvas,original),"Switching document ends presentation and preserves the source board");
 setViewOnly(true);assert(!viewOnly&&$("viewOnlyToggle").hidden,"Notes never offers Board presentation mode");
 openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening the board keeps its original collapse flags");
+{
+  setViewOnly(false);openDoc(boardId);
+  const fr=M.node("mind",3000,3000,"process","Fit");d().nodes.push(fr);autoSize(fr);
+  const fc=M.extend(d(),fr.id,true);selected=new Set([fc.id]);beginEdit(fc,{newElement:true});text("User have AFIN and can login");
+  assert(fc.fitWidth&&fc.w>180&&fc.w<320&&textLines(ctx,fc).length===1,"A new mind-map node grows to keep a short label on one line");
+  text("A much longer mind-map label that keeps going well past any sensible single line width");
+  assert(fc.w===320&&textLines(ctx,fc).length>1,"Past the maximum width a mind-map node wraps");
+  text("Go");assert(fc.w===60,"Short mind-map text shrinks to the minimum width");commitEdit();
+  const ph=M.placeholder(d(),fc.id);autoSize(ph);M.layout(d());
+  assert(Math.abs(fc.y+fc.h/2-(fr.y+fr.h/2))<0.5,"A placeholder leaves an only child on its parent's line");
+  selected=new Set([fc.id]);beginEdit(fc);text("Grows with its placeholder");commitEdit();
+  assert(ph.w===fc.w&&ph.h===Math.max(26,Math.ceil(textLines(ctx,ph).length*ph.fontSize*1.15+8)),"A placeholder rewraps when its owner's width fits");
+  selected=new Set([fc.id]);render();const rh=resizeHandles(fc).find(h=>h.side==="r");
+  pointer("pointerdown",rh.x,rh.y);pointer("pointermove",rh.x+80,rh.y);pointer("pointerup",rh.x+80,rh.y);
+  const kept=fc.w;selected=new Set([fc.id]);beginEdit(fc);text("Go");commitEdit();
+  assert(!fc.fitWidth&&fc.w===kept,"Resizing a mind-map node by hand keeps its width from then on");
+}
 assert(!errors.length,"No uncaught errors through editor and presentation interactions");
 return results;

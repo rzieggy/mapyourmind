@@ -42,3 +42,32 @@ test('invalid placeholder links cannot enter local documents',()=>{
   label.attachmentTo='missing';assert.equal(M.validate(d),false);
   label.attachmentTo=label.id;assert.equal(M.validate(d),false);
 });
+test('a placeholder never bends the connector into its owner',()=>{
+  const d=M.blank(),root=M.node('mind',0,0);d.nodes.push(root);
+  const only=M.extend(d,root.id,true);M.placeholder(d,only.id);
+  const deeper=M.extend(d,only.id,true);M.extend(d,deeper.id,false);M.placeholder(d,deeper.id);M.layout(d);
+  const centre=n=>n.y+n.h/2;
+  assert.equal(centre(only),centre(root));
+  const above=M.extend(d,root.id,false);M.layout(d);
+  const label=d.nodes.find(n=>n.attachmentTo===only.id);
+  assert.ok(Math.max(above.y,only.y)>=Math.min(above.y+above.h,only.y+only.h)&&(label.y>=above.y+above.h||label.y+label.h<=above.y),'siblings make room for a placeholder');
+});
+test('without placeholders the layout keeps its old symmetric places',()=>{
+  const d=M.blank(),root=M.node('mind',0,0);d.nodes.push(root);
+  const a=M.extend(d,root.id,true),b=M.extend(d,root.id,true);M.extend(d,a.id,true);M.extend(d,a.id,true);M.extend(d,a.id,true);M.layout(d);
+  const centre=n=>n.y+n.h/2,kids=d.nodes.filter(n=>n.parent===a.id);
+  assert.equal(centre(a),(centre(kids[0])+centre(kids[2]))/2);
+  assert.ok(b.y>=Math.max(...kids.map(n=>n.y+n.h)));
+});
+test('a new placeholder dresses like its owner, keeps its yellow fill and fits its font',()=>{
+  const d=M.blank(),owner=M.node('flow',0,0);d.nodes.push(owner);
+  Object.assign(owner,{sloppiness:2,sw:3.5,stroke:'#c92a2a',strokeStyle:'dashed',fontFamily:'Google Sans',fontSize:44});
+  const label=M.placeholder(d,owner.id);
+  for(const key of ['sloppiness','sw','stroke','strokeStyle','fontFamily','fontSize'])assert.equal(label[key],owner[key]);
+  assert.equal(label.fill,'#fff0a6');assert.ok(label.h>=Math.ceil(44*1.15));assert.ok(M.validate(d));
+});
+test('new mind-map nodes fit their width; fitWidth must be a boolean',()=>{
+  const d=M.blank(),root=M.node('mind',0,0);d.nodes.push(root);const child=M.extend(d,root.id,true);
+  assert.equal(root.fitWidth,true);assert.equal(child.fitWidth,true);assert.equal(M.node('flow',0,0).fitWidth,undefined);
+  child.fitWidth='yes';assert.equal(M.validate(d),false);
+});

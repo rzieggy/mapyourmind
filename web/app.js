@@ -820,12 +820,29 @@ function shapeShortcut(value) {
 function autoSize(n) {
   if (["image", "sticker", "label"].includes(n.kind)) return;
   if (n.shape === "circle" && n.kind !== "text") return fitCircle(n);
+  if (n.fitWidth && n.kind === "mind" && !n.attachmentTo) {
+    fitWidth(n);
+    // Its placeholder shares the width, so it rewraps with it.
+    for (const label of d()?.nodes.filter((a) => a.attachmentTo === n.id) || []) {
+      label.w = n.w;
+      autoSize(label);
+    }
+  }
   const lines = textLines(ctx, n);
   n.h = Math.max(
     n.attachmentTo ? 26 : M.isText(n) ? 1 : n.shape === "process" ? 32 : 66,
     Math.ceil(lines.length * n.fontSize * 1.15 + textPaddingY(n) * 2),
   );
   if (n.shape === "decision" && !M.isText(n)) n.h = Math.max(110, n.h * 1.35);
+}
+// A mind-map node made since 1.33 grows to its longest line, so short labels
+// stay on one line, and wraps only past the maximum. Resizing its width by hand
+// clears `fitWidth`, and from then on the width is the person's.
+function fitWidth(n) {
+  const text = M.isText(n),
+    pad = n.w - textWrapWidth(n),
+    natural = Math.max(0, ...measureLines(ctx, { ...n, w: 100000 }).map((line) => line.width));
+  n.w = Math.min(text ? 320 : 360, Math.max(text ? 60 : 120, Math.ceil(natural + pad + 2)));
 }
 const roughGenerator = rough.generator();
 const roughCanvases = new WeakMap();
@@ -1771,6 +1788,8 @@ function resizeSelection(p) {
     if (!o) continue;
     n.w = o.w * sx;
     n.h = o.h * sy;
+    if (sx !== 1) delete n.fitWidth;
+    else if (o.fitWidth) n.fitWidth = true;
     n.x = anchorX + (o.x - anchorX) * sx;
     n.y = anchorY + (o.y - anchorY) * sy;
     // Each element still normalises itself: pictures keep their proportions,
@@ -2067,7 +2086,7 @@ canvas.addEventListener("pointerdown", (e) => {
       start: p,
       box: selectionBounds(),
       originals: new Map(
-        resizeGroupNodes().map((a) => [a.id, { x: a.x, y: a.y, w: a.w, h: a.h }]),
+        resizeGroupNodes().map((a) => [a.id, { x: a.x, y: a.y, w: a.w, h: a.h, fitWidth: a.fitWidth }]),
       ),
       before: M.clone(d()),
     };
@@ -2423,6 +2442,8 @@ canvas.addEventListener("pointermove", (e) => {
       bottom = drag.corner.includes("b");
     const minWidth = n.kind === "sticker" ? 24 : n.kind === "image" ? 40 : 80;
     n.w = Math.max(minWidth, o.w + (left ? -dx : right ? dx : 0));
+    if (left || right) delete n.fitWidth;
+    else if (o.fitWidth) n.fitWidth = true;
     n.h = Math.max(
       n.kind === "image" ? 24 : 38,
       o.h + (top ? -dy : bottom ? dy : 0),
