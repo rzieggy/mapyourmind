@@ -1491,6 +1491,16 @@ function paint() {
       y1 = Math.max(a.y + a.h, b.y + b.h, e.bend?.y ?? a.y);
     return inView(x0, y0, x1, y1, 250);
   };
+  // The halo sits under every shape and connector, so the line and its label
+  // stay crisp on top of it.
+  if (!viewOnly)
+    for (const e of shown.edges)
+      if (
+        selected.has(e.id) &&
+        edgeVisible(e) &&
+        !(drag?.type === "endpoint" && drag.id === e.id && !drag.target)
+      )
+        drawEdgeHalo(e);
   for (const item of paintOrder(shown.nodes, shown.edges)) {
     if (item.edge) {
       if (drag?.type === "endpoint" && drag.id === item.edge.id && !drag.target)
@@ -1690,6 +1700,50 @@ function segmentDistance(p, a, b) {
       ),
     );
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+// Liang–Barsky clipping: does any part of segment ab lie inside rectangle r?
+function segmentTouchesRect(a, b, r) {
+  const dx = b.x - a.x,
+    dy = b.y - a.y;
+  let t0 = 0,
+    t1 = 1;
+  for (const [p, q] of [
+    [-dx, a.x - r.x],
+    [dx, r.x + r.w - a.x],
+    [-dy, a.y - r.y],
+    [dy, r.y + r.h - a.y],
+  ]) {
+    if (!p) {
+      if (q < 0) return false;
+      continue;
+    }
+    const t = q / p;
+    if (p < 0) {
+      if (t > t1) return false;
+      t0 = Math.max(t0, t);
+    } else {
+      if (t < t0) return false;
+      t1 = Math.min(t1, t);
+    }
+  }
+  return true;
+}
+// The drawn path is the one `edgePolyline` gives, the same one labels, the
+// selection halo and dragging follow.
+function edgeTouchesRect(e, r) {
+  const g = edgeGeometry(e);
+  if (!g) return false;
+  const label = labeledEdge(e);
+  if (
+    label &&
+    label.x <= r.x + r.w &&
+    label.x + label.w >= r.x &&
+    label.y <= r.y + r.h &&
+    label.y + label.h >= r.y
+  )
+    return true;
+  const pts = edgePolyline(e, g);
+  return pts.slice(1).some((q, i) => segmentTouchesRect(pts[i], q, r));
 }
 function hitEdge(p) {
   return [...visibleCanvas().edges].reverse().find((e) => {
@@ -1973,6 +2027,41 @@ function paintOrder(nodes, edges) {
       at: Math.max(depth.get(edge.from) ?? 0, depth.get(edge.to) ?? 0) + 0.5,
     })),
   ].sort((a, b) => a.at - b.at);
+}
+// A selected connector reads as clearly as a selected shape: a soft accent
+// band along the whole drawn path and behind its label. It follows
+// `edgePolyline`, never `pts`, so straight and curved lines cannot disagree with
+// it. It is drawn only by `paint`, so exports never see it.
+function drawEdgeHalo(e) {
+  const g = edgeGeometry(e);
+  if (!g) return;
+  const pts = edgePolyline(e, g),
+    label = labeledEdge(e),
+    pad = 4 / view.z;
+  ctx.save();
+  ctx.strokeStyle = ctx.fillStyle = "#2474d033";
+  ctx.lineWidth = (e.sw || 1.8) + 8 / view.z;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (label) {
+    // One band, not two overlapping ones that would darken under the label.
+    const box = {
+      x: label.x - pad,
+      y: label.y - pad,
+      w: label.w + pad * 2,
+      h: label.h + pad * 2,
+    };
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(box.x, box.y, box.w, box.h, 6 / view.z);
+    else ctx.rect(box.x, box.y, box.w, box.h);
+    ctx.fill();
+    clipAroundLabel(ctx, box);
+  }
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  ctx.restore();
 }
 function drawEdgeHandles(e) {
   if (viewOnly) return;
@@ -2542,6 +2631,10 @@ canvas.addEventListener("pointerup", (e) => {
             .forEach((a) => selected.add(a.id));
       }
     }
+    // A connector joins in when its drawn line or its label touches the box,
+    // even with a shape outside it, so a style change reaches its label too.
+    for (const e of visibleCanvas().edges)
+      if (edgeTouchesRect(e, r)) selected.add(e.id);
     inspect();
   }
   if (g.type === "move") {
@@ -2886,7 +2979,7 @@ function inspect() {
   for (const id of ["strokeStyle", "sloppiness"]) $(id).parentElement.hidden = n?.kind === "sticker" || n?.kind === "text" || borderless;
   if (strokeless) $("strokeStyle").parentElement.hidden = true;
   for (const [id, key] of [["fontFamily","fontFamily"],["strokeStyle","strokeStyle"],["sloppiness","sloppiness"],["strokeWidth","sw"],["fillStyle","fillStyle"],["edges","edges"]]) {
-    const items = [...ns, ...es].filter(item => id !== "fontFamily" || !["image","sticker"].includes(item.kind) && item.kind);
+    const items = [...ns, ...es].filter(item => id !== "fontFamily" || (item.kind ? !["image","sticker"].includes(item.kind) : !!item.label));
     const values = new Set(items.map(item => item[key] ?? ({fontFamily:"Excalifont",strokeStyle:"solid",sloppiness:"legacy",sw:1.8,fillStyle:"solid",edges:"sharp"}[key])));
     $(id).querySelector('[value="mixed"]')?.remove();
     if (values.size > 1) { const o = new Option("Mixed", "mixed"); o.disabled = true; $(id).add(o); $(id).value = "mixed"; }

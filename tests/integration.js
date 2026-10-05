@@ -1542,7 +1542,7 @@ assert(
   ends.length === 2 &&
     Math.hypot(ends[0].x - endGeometry.p.x, ends[0].y - endGeometry.p.y) < 0.01 &&
     Math.hypot(ends[1].x - endGeometry.q.x, ends[1].y - endGeometry.q.y) < 0.01,
-  "A selected connector carries a handle at each end instead of a halo",
+  "A selected connector carries a handle at each drawn end",
 );
 // Well clear of every other element, so nearShape can only pick this one.
 const clearOf = M.bounds(d().nodes),
@@ -1885,6 +1885,61 @@ await exportPNG(true,"selection","transparent",1);assert((await native("clipboar
 await window.flushSave();const savedCircle=(await native("load")).state.documents.find(doc=>doc.id===current.id).canvas.nodes.find(n=>n.id===circleRoot.id);assert(savedCircle.shape==="circle"&&savedCircle.w===circleRoot.w&&savedCircle.h===circleRoot.h,"Circle survives native save and reload");
 M.remove(d(),[circleCopy.id]);circleRoot.w=circleRoot.h=180;circleChild.text="A circular child";circleChild.w=circleChild.h=180;autoSize(circleChild);M.layout(d());selected=new Set([circleChild.id]);inspect();fit();paint();await wait(100);await native("snapshot",{name:"circle"});
 current.canvas=circleBefore;selected.clear();inspect();await window.flushSave();
+
+// Batch C: a marquee selects every connector whose drawn line or label touches
+// it, even with a shape outside, and a selected connector shows a soft halo
+// along its drawn path that never reaches an export or View only.
+{
+  const before=M.clone(d());closeNotes();current.canvas=M.blank();setTool("select");zoom(1);
+  const ma=M.node("flow",100,100,"process","Marquee A"),mb=M.node("flow",600,100,"process","Marquee B"),
+    mc=M.node("flow",100,400,"process","Marquee C"),md=M.node("flow",600,400,"process","Marquee D");
+  for(const n of [ma,mb,mc,md]){n.w=160;n.h=80;}
+  d().nodes.push(ma,mb,mc,md);
+  const top=M.connect(d(),ma.id,mb.id,{fromSide:"right",toSide:"left"}),
+    bottom=M.connect(d(),mc.id,md.id,{fromSide:"right",toSide:"left"}),
+    side=M.connect(d(),ma.id,mc.id,{fromSide:"bottom",toSide:"top"});
+  top.style=bottom.style=side.style="straight";bottom.label="Yes";top.label="Go";top.labelT=.75;
+  selected.clear();inspect();paint();
+  const drag=(x0,y0,x1,y1,extra={})=>{pointer("pointerdown",x0,y0,extra);pointer("pointermove",x1,y1,extra);pointer("pointerup",x1,y1,extra);};
+  drag(80,80,300,185);
+  assert(selected.has(ma.id)&&selected.has(top.id)&&!selected.has(mb.id)&&!selected.has(side.id)&&!selected.has(bottom.id),"Marquee selects a connector whose line it touches even with the far shape outside");
+  assert($("selectionLabel").textContent==="2 SELECTED ELEMENTS"&&!$("fontFamily").parentElement.hidden&&!$("edgeStyle").parentElement.hidden,"Style panel shows shape and connector controls for a mixed selection");
+  const bl=edgeLabel(bottom);
+  drag(bl.x+2,bl.y-12,bl.x+bl.w-2,bl.y+2);
+  assert(selected.size===1&&selected.has(bottom.id),"Marquee touching only a connector label selects that connector");
+  drag(300,250,500,330);
+  assert(!selected.size,"A marquee that touches no line or label leaves connectors unselected");
+  drag(80,80,300,185);
+  const fontBefore=M.clone(d());
+  $("fontFamily").value="Google Sans";$("fontFamily").dispatchEvent(new Event("change"));
+  assert(ma.fontFamily==="Google Sans"&&top.fontFamily==="Google Sans"&&bottom.fontFamily!=="Google Sans","A font change after a marquee reaches the selected connector's label");
+  undo();
+  assert(M.same(d(),fontBefore),"The font change on shapes and labels undoes as one step");
+  const [ua,ub,uc,ud]=[ma,mb,mc,md].map(n=>d().nodes.find(a=>a.id===n.id)),
+    [utop,ubottom]=[top,bottom].map(e=>d().edges.find(a=>a.id===e.id));
+  const halo=(x,y)=>{const r=devicePixelRatio||1;for(const dy of [-5,-4,4,5]){const p=ctx.getImageData(Math.round((x*view.z+view.x)*r),Math.round(((y+dy)*view.z+view.y)*r),1,1).data;if(p[2]-p[0]>20&&p[0]>150)return true;}return false;};
+  const lineY=edgeGeometry(utop).p.y,lineX=(ua.x+ua.w+ub.x)/2-40;
+  selected.clear();focusOn({x:lineX,y:lineY});
+  assert(!halo(lineX,lineY),"An unselected connector has no halo");
+  selected=new Set([utop.id]);paint();
+  assert(halo(lineX,lineY),"A selected connector draws a soft blue halo along its line");
+  const tl=edgeLabel(utop);
+  assert((()=>{const r=devicePixelRatio||1,p=ctx.getImageData(Math.round((tl.x-2)*view.z+view.x)*r,Math.round((tl.y+1)*view.z+view.y)*r,1,1).data;return p[2]-p[0]>20;})(),"The halo also surrounds the connector label");
+  await native("snapshot",{name:"connector-halo"});
+  utop.style="curved";utop.bend={x:lineX,y:lineY+60};paint();
+  const curve=edgePolyline(utop,edgeGeometry(utop)),mid=curve[Math.floor(curve.length/3)];
+  assert(halo(mid.x,mid.y),"The halo follows a curved, bent connector's drawn path");
+  delete utop.bend;utop.style="straight";
+  selected=new Set([utop.id,ubottom.id]);focusOn({x:lineX,y:edgeGeometry(ubottom).p.y});
+  assert(halo(lineX,edgeGeometry(ubottom).p.y),"Every multi-selected connector gets the halo");
+  const pngNative=native,pngs=[];native=async(action,data)=>{if(action==="png"){pngs.push(data.data);return null;}return pngNative(action,data);};
+  try{await exportPNG(false,"all");selected.clear();await exportPNG(false,"all");}finally{native=pngNative;}
+  assert(pngs.length===2&&pngs[0]===pngs[1],"PNG export is identical with or without a selected connector's halo");
+  selected=new Set([utop.id]);setViewOnly(true);selected=new Set([utop.id]);focusOn({x:lineX,y:lineY});
+  assert(!halo(lineX,lineY),"View only hides the connector halo");
+  setViewOnly(false);
+  current.canvas=before;selected.clear();inspect();await window.flushSave();
+}
 
 const title = current.title,
   id = current.id;
