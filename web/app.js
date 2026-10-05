@@ -2958,7 +2958,7 @@ function inspect() {
   const borderless = n?.kind === "image" && n.stroke === "transparent";
   // A shape with no stroke keeps width and sloppiness, which still shape its fill.
   const strokeless = fillable && n.stroke === "transparent";
-  $("strokeColor").parentElement.hidden = n?.kind === "sticker" || borderless || strokeless;
+  $("strokeColorSection").hidden = n?.kind === "sticker" || borderless || strokeless;
   $("strokeWidth").parentElement.hidden = n?.kind === "sticker" || borderless;
   for (const [key, value] of [
     ["strokeColor", n?.stroke || e?.stroke],
@@ -2985,7 +2985,7 @@ function inspect() {
     if (values.size > 1) { const o = new Option("Mixed", "mixed"); o.disabled = true; $(id).add(o); $(id).value = "mixed"; }
   }
   $("fontSize").parentElement.hidden = !textual;
-  $("textColor").parentElement.hidden = !textual;
+  $("textColorSection").hidden = !textual;
   $("transparentStroke").hidden = !fillable && n?.kind !== "image";
   $("transparentStroke").textContent =
     (n?.stroke === "transparent" ? "Add " : "Remove ") + (fillable ? "stroke" : "border");
@@ -3003,6 +3003,17 @@ function inspect() {
     const active=fillValues.size===1&&b.dataset.color===n?.fill;b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active));
   }
   syncCustomSwatch($("fillCustom"), n?.fill);
+  // Stroke and text colours read across shapes and connectors alike.
+  const strokes = new Set(
+      [...ns.filter((a) => a.stroke !== "transparent"), ...es].map((a) => a.stroke),
+    ),
+    texts = new Set(
+      [...ns.filter((a) => !["image", "sticker"].includes(a.kind)), ...es].map(
+        (a) => a.textColor || "#1b1b1f",
+      ),
+    );
+  syncPalette("strokeColors", "strokeCustom", strokes);
+  syncPalette("textColors", "textCustom", texts);
   syncStrokeControls();
 }
 for (const button of $("textAlignment").querySelectorAll("button"))
@@ -3012,6 +3023,7 @@ for (const color of M.colors) {
   b.className = "swatch";
   if (color === "transparent") b.classList.add("transparent");
   else b.style.background = color;
+  if (color === "#ffffff") b.classList.add("white");
   b.dataset.color = color;
   b.title = color === "transparent" ? "No fill" : color;
   b.ariaLabel = color === "transparent" ? "No fill" : "Fill " + color;
@@ -3039,11 +3051,47 @@ $("fillColors").parentElement.append(
     "fillCustom",
   ),
 );
+// Stroke and text share one palette of strong, readable colours, black and
+// white first, with the same pinned custom picker as fill.
+const lineColors = [
+  "#1b1b1f",
+  "#ffffff",
+  "#868e96",
+  "#e03131",
+  "#f08c00",
+  "#2f9e44",
+  "#2474d0",
+  "#7048e8",
+];
+for (const [row, key, noun] of [
+  ["strokeColors", "stroke", "Stroke"],
+  ["textColors", "textColor", "Text"],
+])
+  for (const color of lineColors) {
+    const b = document.createElement("button");
+    b.className = "swatch";
+    if (color === "#ffffff") b.classList.add("white");
+    b.style.background = color;
+    b.dataset.color = color;
+    b.title = color;
+    b.ariaLabel = noun + " " + color;
+    b.onclick = () => styleSelection(key, color);
+    $(row).append(b);
+  }
+function syncPalette(row, holder, values) {
+  const value = values.size === 1 ? [...values][0] : null;
+  for (const b of $(row).querySelectorAll("[data-color]")) {
+    const active = b.dataset.color === value?.toLowerCase();
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-pressed", String(active));
+  }
+  syncCustomSwatch($(holder), value, lineColors);
+}
 // The custom swatch shows the colour in use when it is not one of the presets,
 // and otherwise stays a plain colour wheel.
-function syncCustomSwatch(holder, value) {
+function syncCustomSwatch(holder, value, palette = M.colors) {
   if (!holder) return;
-  const custom = !!value && !M.colors.includes(value);
+  const custom = !!value && !palette.includes(value.toLowerCase());
   holder.classList.toggle("active", custom);
   holder.style.background = custom ? value : "";
   if (/^#[0-9a-f]{6}$/i.test(value || ""))

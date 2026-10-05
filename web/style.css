@@ -2176,3 +2176,10 @@ select:focus-visible {
 #laserCanvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:20; }
 #laserCanvas[hidden] { display:none; }
 .view-only #toolbar, .view-only #inspector, .view-only #notesPanel, .view-only .history-control { display:none !important; }
+
+/* No swatch in the right panel carries a border; the selected one shows only
+   the accent ring. The panel is white, so only the white preset keeps an inset
+   hairline, or it would vanish. Transparent and custom stay borderless. */
+#inspector .swatch { border: 0; }
+#inspector .swatch.white { box-shadow: inset 0 0 0 1px #0000001f; }
+#inspector .swatch-custom input[type="color"] { border: 0; }

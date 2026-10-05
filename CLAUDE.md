@@ -51,7 +51,7 @@ An empty editor holds a zero-width character, not just a `<br>`: WebKit paints n
 
 While a connector label is being edited the canvas keeps its clipped gap but draws no text there: the transparent field carries the only copy, which is what keeps an empty label from covering its own line.
 
-Colour palettes scroll horizontally and must keep at least the selection ring's reach as padding, or the ring clips. The custom colour lives in `.palette-row` beside the scroller, never inside it, so scrolling cannot hide it.
+Colour palettes scroll horizontally and must keep at least the selection ring's reach as padding, or the ring clips. The custom colour lives in `.palette-row` beside the scroller, never inside it, so scrolling cannot hide it. Fill, highlight, stroke and text colour all use this row; stroke and text share `lineColors` (black, white, grey, red, orange, green, blue, violet) and their pinned custom pickers are the `#strokeColor` / `#textColor` inputs themselves, inside `#strokeColorSection` / `#textColorSection` (hide the section, not the input's parent). No swatch in the right panel has a border; the selected one shows only the accent outline, and only `.swatch.white` keeps an inset hairline so it stays visible on the white panel.
 
 Rectangles carry an `edges` style of `sharp` or `round`; no other shape does, and Start / end remains a separate full stadium. Sloppiness was checked against the reference in FEEDBACK.md and deliberately left unchanged.
 

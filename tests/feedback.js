@@ -152,14 +152,48 @@ d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").
   const box=M.node("flow",2400,2400,"process","No outline");box.sw=3;d().nodes.push(box);selected=new Set([box.id]);inspect();
   assert(!$("transparentStroke").hidden&&$("transparentStroke").textContent==="Remove stroke","Shapes offer Remove stroke");
   $("transparentStroke").click();inspect();
-  assert(box.stroke==="transparent"&&M.validate(d())&&$("strokeColor").parentElement.hidden&&$("strokeStyle").parentElement.hidden&&!$("strokeWidth").parentElement.hidden&&$("transparentStroke").textContent==="Add stroke","A shape can have no stroke, and hides the colour it has not got");
+  assert(box.stroke==="transparent"&&M.validate(d())&&$("strokeColorSection").hidden&&$("strokeStyle").parentElement.hidden&&!$("strokeWidth").parentElement.hidden&&$("transparentStroke").textContent==="Add stroke","A shape can have no stroke, and hides the colour it has not got");
   const sc=document.createElement("canvas");sc.width=sc.height=400;const sx=sc.getContext("2d");
   drawNode(sx,{...box,x:20,y:20,fill:"transparent",text:""},false);
   assert(!sx.getImageData(0,0,400,400).data.some((v,i)=>i%4===3&&v>0),"A transparent stroke paints nothing");
   $("transparentStroke").click();inspect();
-  assert(box.stroke==="#1b1b1f"&&box.sw===3&&!$("strokeColor").parentElement.hidden,"Add stroke restores the colour and keeps the width");
+  assert(box.stroke==="#1b1b1f"&&box.sw===3&&!$("strokeColorSection").hidden,"Add stroke restores the colour and keeps the width");
   const free=M.node("text",2400,2600);d().nodes.push(free);selected=new Set([free.id]);inspect();
   assert($("transparentStroke").hidden,"Free text has no stroke to remove");
+}
+
+// Batch D: stroke and text colours get the same preset row and pinned custom
+// picker as fill, and no swatch in the panel carries a border.
+{
+  let box=M.node("flow",2400,2800,"process","Colours");d().nodes.push(box);selected=new Set([box.id]);inspect();
+  const presets=["#1b1b1f","#ffffff","#868e96","#e03131","#f08c00","#2f9e44","#2474d0","#7048e8"];
+  for(const [row,holder] of [["strokeColors","strokeCustom"],["textColors","textCustom"]]){
+    const colours=[...$(row).querySelectorAll("[data-color]")].map(b=>b.dataset.color);
+    assert(JSON.stringify(colours)===JSON.stringify(presets)&&$(row).nextElementSibling===$(holder)&&$(holder).parentElement.classList.contains("palette-row"),row+" offers black, white and six strong presets with the custom picker pinned at the right");
+  }
+  for(const [row,key] of [["strokeColors","stroke"],["textColors","textColor"]]){
+    const before=box[key]||"#1b1b1f";
+    $(row).querySelector('[data-color="#e03131"]').click();
+    assert(box[key]==="#e03131"&&$(row).querySelector('[data-color="#e03131"]').classList.contains("active"),"A "+key+" preset applies and shows as selected");
+    undo();box=d().nodes.find(n=>n.id===box.id);selected=new Set([box.id]);inspect();
+    assert((box[key]||"#1b1b1f")===before,"A "+key+" preset is one undo step");
+  }
+  $("strokeColor").value="#123456";$("strokeColor").dispatchEvent(new Event("change"));
+  assert(box.stroke==="#123456"&&$("strokeCustom").classList.contains("active")&&![...$("strokeColors").children].some(b=>b.classList.contains("active")),"The custom stroke picker still applies any colour");
+  $("textColor").value="#654321";$("textColor").dispatchEvent(new Event("change"));
+  assert(box.textColor==="#654321"&&$("textCustom").classList.contains("active"),"The custom text picker still applies any colour");
+  $("strokeColors").querySelector('[data-color="#1b1b1f"]').click();
+  $("transparentStroke").click();inspect();
+  assert(box.stroke==="transparent"&&$("strokeColorSection").hidden,"Remove stroke still hides the stroke palette");
+  $("transparentStroke").click();inspect();
+  assert(box.stroke==="#1b1b1f"&&!$("strokeColorSection").hidden&&$("strokeColors").querySelector('[data-color="#1b1b1f"]').classList.contains("active"),"Add stroke brings the palette back on black");
+  const swatches=[...$("inspector").querySelectorAll(".swatch")];
+  assert(swatches.length>=30&&swatches.every(b=>{const c=getComputedStyle(b);return ["Top","Right","Bottom","Left"].every(side=>parseFloat(c["border"+side+"Width"])===0);}),"No swatch in the style panel has a border");
+  assert(swatches.filter(b=>b.classList.contains("white")).every(b=>getComputedStyle(b).boxShadow.includes("inset"))&&swatches.filter(b=>!b.classList.contains("white")).every(b=>getComputedStyle(b).boxShadow==="none"),"Only white swatches keep an inset hairline");
+  const ring=getComputedStyle($("strokeColors").querySelector(".active"));
+  assert(ring.outlineStyle==="solid"&&ring.outlineWidth==="2px"&&ring.outlineColor.replace(/\s/g,"")==="rgb(36,116,208)","The selected swatch shows only the blue ring");
+  $("inspector").scrollTop=$("fillSection").offsetTop-20;paint();await wait(120);await native("snapshot",{name:"style-colours"});
+  selected.clear();inspect();M.remove(d(),[box.id]);
 }
 
 {

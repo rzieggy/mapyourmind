@@ -1740,9 +1740,12 @@ assert(Math.abs(pastedImage.x-imageX-50)<10,"Pasted images can be repositioned")
 selected = new Set([pastedImage.id]);
 inspect();
 const borderControls = () =>
-  ["strokeColor", "strokeWidth", "strokeStyle", "sloppiness"].map(
-    (id) => $(id).parentElement.hidden,
-  );
+  [
+    $("strokeColorSection").hidden,
+    ...["strokeWidth", "strokeStyle", "sloppiness"].map(
+      (id) => $(id).parentElement.hidden,
+    ),
+  ];
 assert(
   pastedImage.stroke === "transparent" &&
     $("transparentStroke").textContent === "Add border" &&
