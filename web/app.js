@@ -2842,7 +2842,9 @@ function inspect() {
   $("highlightSection").hidden = !textual;
   // An image with no border should not show controls for one it does not have.
   const borderless = n?.kind === "image" && n.stroke === "transparent";
-  $("strokeColor").parentElement.hidden = n?.kind === "sticker" || borderless;
+  // A shape with no stroke keeps width and sloppiness, which still shape its fill.
+  const strokeless = fillable && n.stroke === "transparent";
+  $("strokeColor").parentElement.hidden = n?.kind === "sticker" || borderless || strokeless;
   $("strokeWidth").parentElement.hidden = n?.kind === "sticker" || borderless;
   for (const [key, value] of [
     ["strokeColor", n?.stroke || e?.stroke],
@@ -2861,6 +2863,7 @@ function inspect() {
   $("fontFamily").parentElement.hidden = !textual;
   $("fontFallback").hidden = !textual || googleSansAvailable || ![...ns, ...es].some(item => item.fontFamily === "Google Sans");
   for (const id of ["strokeStyle", "sloppiness"]) $(id).parentElement.hidden = n?.kind === "sticker" || n?.kind === "text" || borderless;
+  if (strokeless) $("strokeStyle").parentElement.hidden = true;
   for (const [id, key] of [["fontFamily","fontFamily"],["strokeStyle","strokeStyle"],["sloppiness","sloppiness"],["strokeWidth","sw"],["fillStyle","fillStyle"],["edges","edges"]]) {
     const items = [...ns, ...es].filter(item => id !== "fontFamily" || !["image","sticker"].includes(item.kind) && item.kind);
     const values = new Set(items.map(item => item[key] ?? ({fontFamily:"Excalifont",strokeStyle:"solid",sloppiness:"legacy",sw:1.8,fillStyle:"solid",edges:"sharp"}[key])));
@@ -2869,9 +2872,9 @@ function inspect() {
   }
   $("fontSize").parentElement.hidden = !textual;
   $("textColor").parentElement.hidden = !textual;
-  $("transparentStroke").hidden = !n || n.kind !== "image";
+  $("transparentStroke").hidden = !fillable && n?.kind !== "image";
   $("transparentStroke").textContent =
-    n?.stroke === "transparent" ? "Add border" : "Remove border";
+    (n?.stroke === "transparent" ? "Add " : "Remove ") + (fillable ? "stroke" : "border");
   $("transparentStroke").setAttribute("aria-pressed", String(n?.stroke !== "transparent"));
   $("edgeStyle").parentElement.hidden = !e;
   $("edgeArrow").parentElement.hidden = !e || e.tree;
@@ -2979,17 +2982,20 @@ for (const [id, key, numeric] of [
 $("edgeArrow").onchange = (e) => styleSelection("arrow", e.target.checked);
 // Adding a border starts from a known, quiet state rather than whatever the
 // controls happened to be left on, and does it as a single change.
+// A shape only gets its colour back; its width and style were never hidden.
 $("transparentStroke").onclick = () => {
-  const images = () =>
-    d()?.nodes.filter((a) => selected.has(a.id) && a.kind === "image") || [];
-  const adding = images().some((a) => a.stroke === "transparent");
+  const outlined = () =>
+    d()?.nodes.filter((a) => selected.has(a.id) && !["text", "sticker"].includes(a.kind)) || [];
+  const adding = outlined().some((a) => a.stroke === "transparent");
   mutate(() => {
-    for (const n of images())
+    for (const n of outlined())
       Object.assign(
         n,
-        adding
-          ? { stroke: "#1b1b1f", sw: 1, strokeStyle: "solid", sloppiness: 1 }
-          : { stroke: "transparent" },
+        !adding
+          ? { stroke: "transparent" }
+          : n.kind === "image"
+            ? { stroke: "#1b1b1f", sw: 1, strokeStyle: "solid", sloppiness: 1 }
+            : { stroke: "#1b1b1f" },
       );
   });
 };

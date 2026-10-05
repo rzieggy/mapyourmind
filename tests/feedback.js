@@ -148,6 +148,19 @@ drawImageNode(pc,img);const plain=pc.getImageData(0,0,150,150).data.slice();pc.c
 img.stroke="#ff0000";img.sw=3;drawImageNode(pc,img);const bordered=pc.getImageData(0,0,150,150).data;
 assert(bordered.some((v,i)=>v!==plain[i]),"Image stroke changes actual rendered pixels");
 d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").click();assert(img.stroke==="transparent","Image stroke can return to transparent");
+{
+  const box=M.node("flow",2400,2400,"process","No outline");box.sw=3;d().nodes.push(box);selected=new Set([box.id]);inspect();
+  assert(!$("transparentStroke").hidden&&$("transparentStroke").textContent==="Remove stroke","Shapes offer Remove stroke");
+  $("transparentStroke").click();inspect();
+  assert(box.stroke==="transparent"&&M.validate(d())&&$("strokeColor").parentElement.hidden&&$("strokeStyle").parentElement.hidden&&!$("strokeWidth").parentElement.hidden&&$("transparentStroke").textContent==="Add stroke","A shape can have no stroke, and hides the colour it has not got");
+  const sc=document.createElement("canvas");sc.width=sc.height=400;const sx=sc.getContext("2d");
+  drawNode(sx,{...box,x:20,y:20,fill:"transparent",text:""},false);
+  assert(!sx.getImageData(0,0,400,400).data.some((v,i)=>i%4===3&&v>0),"A transparent stroke paints nothing");
+  $("transparentStroke").click();inspect();
+  assert(box.stroke==="#1b1b1f"&&box.sw===3&&!$("strokeColor").parentElement.hidden,"Add stroke restores the colour and keeps the width");
+  const free=M.node("text",2400,2600);d().nodes.push(free);selected=new Set([free.id]);inspect();
+  assert($("transparentStroke").hidden,"Free text has no stroke to remove");
+}
 
 {
   const tap=()=>{window.dispatchEvent(new KeyboardEvent("keydown",{key:" ",bubbles:true,cancelable:true}));window.dispatchEvent(new KeyboardEvent("keyup",{key:" ",bubbles:true}));};
