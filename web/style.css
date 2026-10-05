@@ -1468,12 +1468,13 @@ button.secondary:hover { background:#efeff3; }
 }
 .default-tools { display: grid; gap: 6px; margin-top: 4px; }
 .default-tools .text-button { justify-self: start; font-size: 13px; color: #666; padding: 2px 0; }
-.defaults-after { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; }
-.defaults-list { display: grid; gap: 6px; max-height: 52vh; overflow-y: auto; }
-.defaults-row { display: flex; align-items: center; gap: 14px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; }
-.defaults-preview { display: flex; width: 112px; height: 52px; flex: none; background: #fff; }
-.defaults-name { display: grid; flex: 1; font-size: 15px; }
-.defaults-name small { color: #777; font-size: 12px; }
+/* Settings: four global choices, laid out like the style panel. */
+.settings-list { display: grid; gap: 16px; margin: 18px 0 4px; min-width: 340px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: #6b6b76; }
+.settings-row.stacked { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 7px; }
+.settings-row.stacked .stroke-choice-group:not(.font-tiles) { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.settings-row.stacked .stroke-choice-group button { width: auto; }
+.settings-row .font-tiles button { height: 58px; }
 
 /* Canonical wraps keep browser glyphs and exported text on the same lines. */
 #textEditor {white-space:pre;overflow-wrap:normal;font-kerning:none;font-variant-ligatures:none;}

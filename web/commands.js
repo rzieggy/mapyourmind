@@ -74,7 +74,7 @@ function commandCatalog() {
   addBrowserCommand(add);
   add("import","Import mind map…","Document",chooseMindmapImport);
   add("home","Open document library","Document",goHome);
-  add("settings","Edit creation defaults…","Document",defaultsPanel,"⌘,");
+  add("settings","Settings…","Document",defaultsPanel,"⌘,");
   add("help","Show keyboard shortcuts","Help",help);
   const priority = edges.length ? "Connector" : nodes.length ? "Object" : "Tools";
   return commands.sort((a,b)=>(a.category===priority?0:1)-(b.category===priority?0:1));

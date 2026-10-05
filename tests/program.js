@@ -10,7 +10,7 @@ for(const kind of ["flow","mind"])for(const child of [true,false])for(const shap
  current.canvas=M.blank();history=new M.History();
  const donor=M.node(kind,-8000,9000,shape,"Donor");Object.assign(donor,{shape,w:300,h:shape==="circle"?300:170,fill:"transparent",fillStyle:"cross-hatch",edges:"round",stroke:"#123456",sw:3,strokeStyle:"dashed",sloppiness:2,fontFamily:"Google Sans",fontSize:25,textColor:"#445566",textAlign:"right",group:"old-group",notes:[{id:"note",text:"Private",created:1,replies:[]}],marks:[{start:0,end:5,bold:true,underline:true,highlight:"#fff0a6"}]});d().nodes.push(donor);selected=new Set([donor.id]);view={x:0,y:0,z:.57};inspect();const before=M.clone(d());
  key(canvas,child?"Tab":"Enter");const created=d().nodes.at(-1);assert(editing?.id===created.id&&selected.size===1&&selected.has(created.id),"Keyboard creation immediately selects and edits: "+kind+" "+shape+" "+child);
- // After a Start / end or a root, the new node is a step: shape, fill, fill style and size come from the After Start / end default.
+ // After a flowchart Start / end the new node is always a white rectangle: shape, fill, fill style and size come from it (the After Start / end setting was removed).
  const terminator=shape==="pill"&&kind==="flow",step=["shape","fill","fillStyle","w","h"];
  const textChild=kind==="mind"&&child, textStyle={shape:"process",fill:"transparent",stroke:"transparent",fillStyle:"solid",h:Math.ceil(donor.fontSize*1.15+6),textAlign:"left"};
  // New mind-map nodes fit their width to their text instead of inheriting it.

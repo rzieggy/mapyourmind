@@ -245,20 +245,39 @@ d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").
 {
   const box=M.node("flow",3000,3000,"process","Styled");d().nodes.push(box);selected=new Set([box.id]);inspect();
   assert(!$("defaultSection")&&!$("setDefault")&&!$("openDefaults")&&!$("nodeNotesBtn")&&!$("duplicateBtn")&&!$("deleteBtn"),"Style panel excludes defaults and content action buttons");
-  styleSelection("fill","#dbe4ff");styleSelection("fontFamily","Google Sans");
-  await saveDefaults({...M.getDefaults(),process:M.styleOf(box)});await wait(100);
-  assert(M.node("flow",0,0).fill==="#dbe4ff"&&M.node("flow",0,0).fontFamily==="Google Sans","Set as default shapes new rectangles");
-  assert(M.getDefaults().process.fill==="#dbe4ff","Existing per-shape preferences remain supported without an inspector action");
-  const prefs=await native("loadPreferences");
-  assert(prefs.process.fill==="#dbe4ff"&&!JSON.stringify((await native("load")).state).includes("afterTerminator"),"Defaults are saved apart from the documents");
+  // Batch D: Settings is four global choices for new elements only.
+  const legacy={process:{fill:"#dbe4ff"},mindRoot:{fontFamily:"Google Sans"},connector:{sw:3},afterTerminator:"decision"};
+  await native("savePreferences",{preferences:legacy});
+  assert(!Object.keys(M.setDefaults(await native("loadPreferences"))).length&&M.node("flow",0,0).fill==="#ffffff","An older per-shape preferences file loads without error and no longer applies");
+  const other=M.node("flow",3400,3000,"process","Other");d().nodes.push(other);
+  const link=M.connect(d(),box.id,other.id,{fromSide:"right",toSide:"left"});link.label="Existing";
+  const existing=M.clone(d());
   window.appCommand("settings");await wait(50);
-  assert($("modal").open&&$("modalBody").querySelectorAll(".defaults-preview canvas").length===8,"⌘, lists every default with a drawn preview");
-  $("afterTerminatorChoice").value="decision";$("afterTerminatorChoice").dispatchEvent(new Event("change"));await wait(50);
-  $("modalBody").querySelector(".defaults-list").scrollTop=999;await native("snapshot",{name:"defaults"});
+  const groups=[...$("modalBody").querySelectorAll("[data-setting]")].map(g=>g.dataset.setting+":"+[...g.querySelectorAll("button")].map(b=>b.dataset.value).join("|"));
+  assert($("modal").open&&groups.join()==="fontFamily:Excalifont|Google Sans|Comic Shanns,sloppiness:0|1|2,sw:1|1.8|3,fontSize:14|19|25|34|44"&&!$("modalBody").querySelector("select")&&!$("afterTerminatorChoice"),"⌘, offers font, sloppiness, stroke width and font size as tiles, without After Start / end");
+  const pressed=()=>[...$("modalBody").querySelectorAll('[aria-pressed="true"]')].map(b=>b.parentElement.dataset.setting+"="+b.dataset.value).join();
+  assert(pressed()==="fontFamily=Excalifont,sloppiness=1,sw=1.8,fontSize=19"&&$("resetDefaults").disabled,"Settings start on the built-in look with nothing to reset");
+  const click=(key,value)=>$("modalBody").querySelector('[data-setting="'+key+'"] [data-value="'+value+'"]').click();
+  for(const [key,value,stored] of [["fontFamily","Google Sans","Google Sans"],["sloppiness","2",2],["sw","3",3],["fontSize","34",34]]){
+    click(key,value);await wait(60);
+    assert((await native("loadPreferences")).global?.[key]===stored&&$("modalBody").querySelector('[data-setting="'+key+'"] [aria-pressed="true"]').dataset.value===value,"Choosing "+key+" saves at once and shows as selected");
+  }
+  assert(!$("resetDefaults").disabled&&M.same(d(),existing),"Existing shapes and connectors keep their look");
+  await native("snapshot",{name:"settings"});
+  const fresh=M.node("flow",0,0),text=M.node("text",0,0),root=M.node("mind",0,0),freshLink=M.connect(d(),box.id,other.id);
+  assert([fresh,text,root].every(n=>n.fontFamily==="Google Sans"&&n.sloppiness===2&&n.sw===3&&n.fontSize===34),"New shapes, text and mind-map roots use the settings");
+  assert(freshLink.fontFamily==="Google Sans"&&freshLink.sloppiness===2&&freshLink.sw===3&&freshLink.fontSize===undefined,"New connectors take the font for their label, sloppiness and stroke width");
+  M.remove(d(),[freshLink.id]);
+  await saveDefaults({...M.getDefaults(),afterTerminator:"decision"});
   const start=M.node("flow",3000,3300,"pill","Start");d().nodes.push(start);
-  assert(M.extend(d(),start.id,true).shape==="decision","The chosen shape follows Start / end");
+  const afterStart=M.extend(d(),start.id,true);
+  assert(afterStart.shape==="process"&&afterStart.fill==="#ffffff"&&!("afterTerminator" in await native("loadPreferences")),"Start / end is always followed by a white rectangle, whatever an old file says");
+  const prefs=await native("loadPreferences");
+  assert(prefs.global.fontSize===34&&!JSON.stringify((await native("load")).state).includes("\"global\""),"Settings are saved apart from the documents");
+  click("sloppiness","1");await wait(60);
+  assert(!("sloppiness" in (await native("loadPreferences")).global),"Choosing the built-in value stores no setting");
   $("resetDefaults").click();await wait(100);
-  assert(!Object.keys(M.getDefaults()).length&&!Object.keys(await native("loadPreferences")).length&&M.node("flow",0,0).fill==="#ffffff","Reset all restores the built-in look");
+  assert(!Object.keys(M.getDefaults()).length&&!Object.keys(await native("loadPreferences")).length&&pressed()==="fontFamily=Excalifont,sloppiness=1,sw=1.8,fontSize=19"&&M.node("flow",0,0).fontFamily===undefined&&M.node("flow",0,0).sw===1.8,"Reset all restores the built-in look");
   closeModal();selected.clear();M.remove(d(),d().nodes.filter(n=>n.x>=2900).map(n=>n.id));
 }
 {

@@ -211,7 +211,7 @@ assert(current.title==='Renamed in place'&&$('docTitle').textContent==='Renamed 
 assert(rowFor(current.id).textContent.includes('Renamed in place'),'The sidebar shows the new name');
 current.title=titleBefore;$('docTitle').textContent=titleBefore;renderDocumentSidebar();
 $('openSettings').click();await wait(50);
-assert($('modal').open&&$('modalBody').querySelector('.defaults-list'),'The sidebar Settings opens the defaults settings');
+assert($('modal').open&&$('modalBody').querySelector('.settings-list'),'The sidebar Settings opens the settings');
 closeModal();
 
 assert($('openSettings').closest('#sidebarTrash')&&$('openSettings').getBoundingClientRect().bottom<=$('sidebarTrashToggle').getBoundingClientRect().top,'Settings sits above Trash in the sidebar');

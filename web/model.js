@@ -75,51 +75,29 @@
     "textColor",
     "textAlign",
   ];
-  // Defaults the person chose for new elements, one entry per shape plus
-  // `mindRoot` and `connector`, and `afterTerminator`, the shape that follows a
-  // Start / end or a mind-map pill. They apply only to elements made fresh:
-  // Tab and Enter still inherit from their source, which is what keeps a chain
-  // consistent. Every value is checked here, so a damaged preferences file can
-  // never put something into a document that its validation would refuse.
+  // Settings for new elements live in preferences.json as one `global` layer:
+  // font, sloppiness, stroke width and font size. They apply only to elements
+  // made fresh; Tab and Enter still inherit from their source, which keeps a
+  // chain consistent, and existing elements never change. Every value is
+  // checked here and again natively (`sanitizePreferences` in main.swift), so a
+  // damaged file can never put into a document something its validation would
+  // refuse. Older files carried per-shape entries, `mindRoot`, `connector` and
+  // `afterTerminator`; those are dropped on load and never fail it.
   const shapeNames = ["process", "decision", "pill", "note", "circle", "io"];
-  const hex = (v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
-  const defaultRules = {
-    shape: (v) => shapeNames.includes(v),
-    fill: (v) => v === "transparent" || hex(v),
-    fillStyle: (v) => fillStyles.includes(v),
-    edges: (v) => edgeStyles.includes(v),
-    stroke: (v) => v === "transparent" || hex(v),
-    sw: (v) => Number.isFinite(v) && v > 0 && v <= 12,
-    strokeStyle: (v) => ["solid", "dashed", "dotted"].includes(v),
+  const globalDefaultRules = {
+    fontFamily: (v) => ["Excalifont", "Google Sans", "Comic Shanns"].includes(v),
     sloppiness: (v) => [0, 1, 2].includes(v),
-    fontFamily: (v) => ["Excalifont", "Google Sans", "Comic Shanns", "Arial"].includes(v),
+    sw: (v) => [1, 1.8, 3].includes(v),
     fontSize: (v) => [14, 19, 25, 34, 44].includes(v),
-    textColor: hex,
-    textAlign: (v) => ["left", "center", "right"].includes(v),
-    style: (v) => ["elbow", "straight", "curved"].includes(v),
-    arrow: (v) => typeof v === "boolean",
   };
-  const shapeDefaultKeys = nodeStyleKeys.filter((k) => k !== "shape"),
-    connectorDefaultKeys = ["style", "arrow", "stroke", "sw", "strokeStyle", "sloppiness", "fontFamily", "fontSize", "textColor"];
-  function defaultKeys(entry) {
-    return entry === "connector"
-      ? connectorDefaultKeys
-      : entry === "mindRoot"
-        ? ["shape", ...shapeDefaultKeys]
-        : shapeDefaultKeys;
-  }
   function sanitizeDefaults(raw) {
-    const out = {};
-    if (!raw || typeof raw !== "object") return out;
-    if (shapeNames.includes(raw.afterTerminator)) out.afterTerminator = raw.afterTerminator;
-    for (const entry of [...shapeNames, "mindRoot", "connector"]) {
-      const value = raw[entry];
-      if (!value || typeof value !== "object") continue;
-      const kept = {};
-      for (const key of defaultKeys(entry))
-        if (value[key] !== undefined && defaultRules[key](value[key])) kept[key] = value[key];
-      if (Object.keys(kept).length) out[entry] = kept;
-    }
+    const out = {},
+      global = raw && typeof raw === "object" ? raw.global : null;
+    if (!global || typeof global !== "object" || Array.isArray(global)) return out;
+    const kept = {};
+    for (const [key, rule] of Object.entries(globalDefaultRules))
+      if (global[key] !== undefined && rule(global[key])) kept[key] = global[key];
+    if (Object.keys(kept).length) out.global = kept;
     return out;
   }
   let defaults = {};
@@ -130,19 +108,20 @@
   function getDefaults() {
     return clone(defaults);
   }
-  // The style an element would give as the default for its kind of entry.
-  function defaultEntry(element) {
-    if (element.from) return element.tree ? null : "connector";
-    if (element.attachmentTo || !["flow", "mind"].includes(element.kind)) return null;
-    return element.kind === "mind" && !element.parent ? "mindRoot" : element.shape;
-  }
-  function styleOf(element) {
-    const entry = defaultEntry(element),
+  // What the global layer gives a fresh shape, text or manual connector.
+  // Connector labels take the font but not the size: a label sized like a
+  // heading would swamp its line. Images and stickers take nothing.
+  function globalStyle(kind) {
+    const g = defaults.global || {},
+      keys =
+        kind === "connector"
+          ? ["fontFamily", "sloppiness", "sw"]
+          : ["flow", "mind", "text"].includes(kind)
+            ? ["fontFamily", "sloppiness", "sw", "fontSize"]
+            : [],
       style = {};
-    if (!entry) return null;
-    for (const key of defaultKeys(entry))
-      if (element[key] !== undefined) style[key] = element[key];
-    return sanitizeDefaults({ [entry]: style })[entry] || {};
+    for (const key of keys) if (g[key] !== undefined) style[key] = g[key];
+    return style;
   }
   function blank() {
     return { nodes: [], edges: [], direction: "horizontal" };
@@ -176,11 +155,7 @@
       order: 0,
       group: null,
       ...(kind === "mind" ? { fitWidth: true } : null),
-      ...(kind === "mind" && shape === "process"
-        ? defaults.mindRoot
-        : ["flow", "mind"].includes(kind)
-          ? defaults[shape]
-          : null),
+      ...globalStyle(kind),
     };
   }
   function children(d, id) {
@@ -456,7 +431,7 @@
       arrow: true,
       stroke: "#1b1b1f",
       sw: 1.8,
-      ...(opts.tree ? null : defaults.connector),
+      ...(opts.tree ? null : globalStyle("connector")),
       ...opts,
     };
     d.edges.push(e);
@@ -493,11 +468,12 @@
     // An absent optional field means the legacy renderer default, not the new-element preference.
     for (const key of visualProperties) if (n[key] === undefined) delete m[key];
     Object.assign(m, visualStyle(n));
-    // Flow Start / end uses the configured successor's shape, fill and size.
-    // Mind-map descendants use compact text below; other styles remain inherited.
+    // Flow Start / end is always followed by a white rectangle's shape, fill and
+    // size. Mind-map descendants use compact text below; other styles remain
+    // inherited.
     const terminator = n.kind === "flow" && n.shape === "pill";
     if (terminator) {
-      const step = node("flow", 0, 0, defaults.afterTerminator || "process");
+      const step = node("flow", 0, 0, "process");
       Object.assign(m, { shape: step.shape, fill: step.fill, w: step.w, h: step.h });
       if (step.fillStyle) m.fillStyle = step.fillStyle; else delete m.fillStyle;
     }
@@ -1005,8 +981,6 @@
     shapeNames,
     setDefaults,
     getDefaults,
-    defaultEntry,
-    styleOf,
     retainMove,
     setDirection,
     tidy,

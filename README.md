@@ -26,7 +26,7 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 | Find text in a Board or Notes | **⌘F**, Enter / Shift Enter for next / previous, Esc to close |
 | Connect two shapes | Hover a shape and drag from one of its dots to another shape |
 | Comment on a node | ⌘⌥C |
-| Style defaults | ⌘, |
+| Settings for new elements (font, sloppiness, stroke width, font size) | ⌘, |
 | Export as PNG | ⌘E |
 | Export a Board as PDF | Document title ▾ → **Export PDF…**, or File → Export PDF… |
 | Collapse / expand a branch | Select its parent, tap **Space** |

@@ -162,13 +162,29 @@ final class LocalStore {
             }
         }
     }
+    // Settings for new elements: one `global` layer, each key checked on its
+    // own, in step with `sanitizeDefaults` in web/model.js. Older files carried
+    // per-shape entries and `afterTerminator`; they are dropped, never refused.
+    static func sanitizePreferences(_ raw:[String:Any]) -> [String:Any] {
+        guard let global=raw["global"] as? [String:Any] else { return [:] }
+        func number(_ value:Any?) -> Double? {
+            guard let n=value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+            return n.doubleValue
+        }
+        var kept:[String:Any]=[:]
+        if let font=global["fontFamily"] as? String, ["Excalifont","Google Sans","Comic Shanns"].contains(font) { kept["fontFamily"]=font }
+        if let value=number(global["sloppiness"]), [0.0,1,2].contains(value) { kept["sloppiness"]=Int(value) }
+        if let value=number(global["sw"]), [1.0,1.8,3].contains(value) { kept["sw"]=value }
+        if let value=number(global["fontSize"]), [14.0,19,25,34,44].contains(value) { kept["fontSize"]=Int(value) }
+        return kept.isEmpty ? [:] : ["global":kept]
+    }
     func loadPreferences() -> [String:Any] {
         guard let data=try? Data(contentsOf:directory.appendingPathComponent("preferences.json")),data.count<=100_000,
               let object=try? JSONSerialization.jsonObject(with:data) as? [String:Any] else { return [:] }
-        return object
+        return LocalStore.sanitizePreferences(object)
     }
     func savePreferences(_ preferences:[String:Any]) throws {
-        let data=try JSONSerialization.data(withJSONObject:preferences,options:.sortedKeys)
+        let data=try JSONSerialization.data(withJSONObject:LocalStore.sanitizePreferences(preferences),options:.sortedKeys)
         guard data.count<=100_000 else { throw StoreFailure(message:"Preferences exceed the supported size.") }
         try data.write(to:directory.appendingPathComponent("preferences.json"),options:.atomic)
     }
@@ -657,7 +673,16 @@ if CommandLine.arguments.contains("--storage-test") {
         var malformed=schema3;malformed["documents"]=[["id":"bad","title":"Invalid image","canvas":["nodes":[["id":"bad-image","kind":"image","text":"","x":0,"y":0,"w":80,"h":80,"imageRef":"../documents"]],"edges":[]]]]
         var badRejected=false;do{try store.save(malformed)}catch{badRejected=true}
         let afterRejected=try Data(contentsOf:store.primary);precondition(badRejected && afterRejected==intact)
-        try store.savePreferences(["process":["fill":"#123456"]]);precondition((store.loadPreferences()["process"] as? [String:String])?["fill"]=="#123456")
+        let preferencesFile=store.directory.appendingPathComponent("preferences.json")
+        try Data(##"{"process":{"fill":"#123456"},"mindRoot":{"fontFamily":"Google Sans"},"connector":{"sw":3},"afterTerminator":"decision"}"##.utf8).write(to:preferencesFile)
+        precondition(store.loadPreferences().isEmpty)
+        try Data(##"{"afterTerminator":"decision","global":{"fontFamily":"Arial","sloppiness":2,"sw":true,"fontSize":34,"fill":"#000000"}}"##.utf8).write(to:preferencesFile)
+        let mixedPreferences=store.loadPreferences()["global"] as? [String:Any]
+        precondition(mixedPreferences?.count==2 && mixedPreferences?["sloppiness"] as? Int==2 && mixedPreferences?["fontSize"] as? Int==34)
+        try Data("not json".utf8).write(to:preferencesFile);precondition(store.loadPreferences().isEmpty)
+        try store.savePreferences(["global":["fontFamily":"Comic Shanns","sloppiness":0,"sw":1.8,"fontSize":44],"process":["fill":"#123456"]])
+        let savedPreferences=store.loadPreferences()["global"] as? [String:Any]
+        precondition(savedPreferences?.count==4 && savedPreferences?["fontFamily"] as? String=="Comic Shanns" && savedPreferences?["sw"] as? Double==1.8 && store.loadPreferences()["process"]==nil)
         print("PASS native storage: schema 1/2/3, referenced images, deduplication, stickers, Notes, preferences, path traversal rejection, atomic recovery, future schema protection, single-writer lock")
     } catch { print("FAIL: \(error)"); exit(1) }
 } else if CommandLine.arguments.contains("--serve") {

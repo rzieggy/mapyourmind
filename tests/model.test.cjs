@@ -309,8 +309,8 @@ test("only uniform formatting becomes typing style", () => {
 
 test("Legacy donor appearance wins over new-element preferences",()=>{
  const doc=M.blank(),donor=M.node("mind",0,0);doc.nodes.push(donor);
- M.setDefaults({mindRoot:{fontFamily:"Google Sans",fillStyle:"cross-hatch",edges:"round",strokeStyle:"dashed",sloppiness:2}});
- // A root's child is a step (Zieggy's After Start / end rule): shape, fill, fill style and size come from that step.
+ M.setDefaults({global:{fontFamily:"Google Sans",sloppiness:2,sw:3,fontSize:34}});
+ // A root's child is compact text: shape, fill, fill style and height come from that rule, the rest from the donor.
  const step=["shape","fill","fillStyle","stroke","h","textAlign"];
  try {const created=M.extend(doc,donor.id,true);for(const key of M.visualProperties.filter(k=>!step.includes(k)))assert.deepEqual(created[key],donor[key],key);assert.ok(M.isText(created));assert.ok(M.validate(doc));}finally{M.setDefaults({});}
 });
@@ -340,4 +340,33 @@ test("mind-map text children keep visible tree connectors after reparenting",()=
  const doc=M.blank(),root=M.node("mind",0,0);doc.nodes.push(root);const a=M.extend(doc,root.id,true),b=M.extend(doc,root.id,true),c=M.extend(doc,a.id,true);
  assert.ok([a,b,c].every(M.isText));assert.equal(root.shape,"pill");assert.equal(root.fill,"#e6def7");
  assert.ok(M.reparent(doc,c.id,b.id));assert.equal(doc.edges.find(e=>e.to===c.id&&e.tree).stroke,"#1b1b1f");assert.ok(M.validate(doc));
+});
+
+test("preferences keep only valid global settings and drop older entries", () => {
+  const old = {process:{fill:"#123456"},mindRoot:{fontFamily:"Google Sans"},connector:{sw:3},afterTerminator:"decision"};
+  assert.deepEqual(M.setDefaults(old), {}, "an older per-shape file loads as no settings");
+  assert.deepEqual(M.setDefaults({...old,global:{fontFamily:"Arial",sloppiness:2,sw:5,fontSize:19,fill:"#000000"}}), {global:{sloppiness:2,fontSize:19}});
+  assert.deepEqual(M.setDefaults({global:{fontFamily:"Comic Shanns",sloppiness:0,sw:1,fontSize:44}}).global, {fontFamily:"Comic Shanns",sloppiness:0,sw:1,fontSize:44});
+  for (const bad of [null, 7, "x", [], {global:[]}, {global:"x"}, {global:{sloppiness:true,sw:"3",fontSize:20}}]) assert.deepEqual(M.setDefaults(bad), {});
+  M.setDefaults({});
+});
+
+test("global settings shape new elements only, and Start / end is always followed by a white rectangle", () => {
+  const doc = M.blank(), before = M.node("flow", 0, 0), start = M.node("flow", 0, 300, "pill", "Start");
+  doc.nodes.push(before, start);
+  M.setDefaults({global:{fontFamily:"Google Sans",sloppiness:2,sw:3,fontSize:34},afterTerminator:"decision"});
+  try {
+    assert.equal(before.fontFamily, undefined); assert.equal(before.sw, 1.8); assert.equal(before.fontSize, 19);
+    for (const kind of ["flow", "mind", "text"]) {
+      const n = M.node(kind, 0, 0);
+      assert.deepEqual([n.fontFamily, n.sloppiness, n.sw, n.fontSize], ["Google Sans", 2, 3, 34], kind);
+    }
+    for (const kind of ["image", "sticker"]) assert.equal(M.node(kind, 0, 0).fontFamily, undefined, kind);
+    const other = M.node("flow", 400, 0); doc.nodes.push(other);
+    const e = M.connect(doc, before.id, other.id);
+    assert.deepEqual([e.fontFamily, e.sloppiness, e.sw, e.fontSize], ["Google Sans", 2, 3, undefined]);
+    const next = M.extend(doc, start.id, true);
+    assert.equal(next.shape, "process"); assert.equal(next.fill, "#ffffff");
+    assert.ok(M.validate(doc));
+  } finally { M.setDefaults({}); }
 });

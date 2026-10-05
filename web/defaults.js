@@ -1,19 +1,10 @@
 "use strict";
-// Defaults for new elements. A style is made the default from the style panel
-// with "Set as default", and reviewed or reset in the panel ⌘, opens. They
-// live in preferences.json beside the document store, never in a document, and
-// the model checks every value before using it.
-const defaultEntries = [
-  ["process", "Rectangle", "rectangles"],
-  ["decision", "Decision", "decisions"],
-  ["pill", "Start / end", "Start / end shapes"],
-  ["note", "Note", "notes"],
-  ["circle", "Circle", "circles"],
-  ["io", "Input / output", "input / output shapes"],
-  ["mindRoot", "Mind-map root", "mind-map roots"],
-  ["connector", "Connector", "connectors"],
-];
-const defaultPlural = Object.fromEntries(defaultEntries.map(([key, , plural]) => [key, plural]));
+// Settings, opened with ⌘, or the sidebar: four global choices for new
+// elements, styled like the style panel. They live in preferences.json beside
+// the document store, never in a document, and the model checks every value
+// before using it. Existing elements never change; Tab and Enter still inherit
+// from their source.
+const builtInSettings = { fontFamily: "Excalifont", sloppiness: 1, sw: 1.8, fontSize: 19 };
 async function saveDefaults(next) {
   M.setDefaults(next);
   try {
@@ -22,74 +13,68 @@ async function saveDefaults(next) {
     toast(e.message);
   }
 }
-// A preview is drawn with the canvas's own renderer, so it shows exactly what
-// a new element will look like.
-function drawDefaultPreview(holder, entry) {
-  const c = document.createElement("canvas"),
-    ratio = devicePixelRatio || 1,
-    w = 112,
-    h = 52;
-  c.width = w * ratio;
-  c.height = h * ratio;
-  c.style.width = w + "px";
-  c.style.height = h + "px";
-  // Drawn at 60% so text sits in its shape at its real size.
-  const g = c.getContext("2d"),
-    scale = 0.6,
-    W = w / scale,
-    H = h / scale;
-  g.scale(ratio * scale, ratio * scale);
-  if (entry === "connector") {
-    const doc = M.blank();
-    for (const x of [4, W - 5]) doc.nodes.push({ ...M.node("flow", x, H / 2, "process"), w: 1, h: 1 });
-    const e = M.connect(doc, doc.nodes[0].id, doc.nodes[1].id, { fromSide: "right", toSide: "left" });
-    drawEdge(g, e, doc);
-  } else {
-    const n = M.node(entry === "mindRoot" ? "mind" : "flow", 0, 0, entry === "mindRoot" ? "process" : entry, "Aa");
-    const size = n.shape === "circle" ? H - 6 : 0;
-    Object.assign(n, { id: "preview-" + entry + M.uid(), x: size ? (W - size) / 2 : 8, y: 3, w: size || W - 16, h: H - 6 });
-    drawNode(g, n);
-  }
-  holder.replaceChildren(c);
+function settingValue(key) {
+  return M.getDefaults().global?.[key] ?? builtInSettings[key];
+}
+// A built-in value is stored as no setting at all, so the file only ever holds
+// real choices and Reset all has something to do only when one exists.
+async function chooseSetting(key, value) {
+  const global = { ...M.getDefaults().global, [key]: value };
+  if (value === builtInSettings[key]) delete global[key];
+  await saveDefaults(Object.keys(global).length ? { global } : {});
+  syncSettingsPanel();
+}
+function syncSettingsPanel() {
+  for (const b of $("modalBody").querySelectorAll("[data-setting] button"))
+    b.setAttribute(
+      "aria-pressed",
+      String(b.dataset.value === String(settingValue(b.parentElement.dataset.setting))),
+    );
+  if ($("resetDefaults")) $("resetDefaults").disabled = !M.getDefaults().global;
+}
+function settingsChoices(key, buttons) {
+  return `<div class="stroke-choice-group${key === "fontFamily" ? " font-tiles" : ""}" data-setting="${key}" role="group">${buttons}</div>`;
 }
 function defaultsPanel() {
-  // Reset redraws the open panel in place.
   if ($("modal").open) closeModal();
-  const chosen = M.getDefaults(),
-    after = chosen.afterTerminator || "process";
+  const strokes = Object.fromEntries(strokeChoices),
+    svg = ([value, label, path, width]) =>
+      `<button type="button" data-value="${value}" title="${label}" aria-label="${label}"><svg viewBox="0 0 32 24" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round"/></svg></button>`;
   showModal(
-    `<h2>Defaults for new elements</h2><p>Review or reset saved creation styles here. Tab and Enter inherit flowchart styles; new mind-map children use text.</p>
-    <label class="defaults-after">After Start / end<select id="afterTerminatorChoice">${shapeLabels
-      .map(([key, , label]) => `<option value="${key}"${key === after ? " selected" : ""}>${label}</option>`)
-      .join("")}</select></label>
-    <div class="defaults-list">${defaultEntries
-      .map(
-        ([key, label]) =>
-          `<div class="defaults-row"><span class="defaults-preview" data-preview="${key}"></span><span class="defaults-name">${label}<small>${chosen[key] ? "Custom" : "Built-in"}</small></span>${
-            chosen[key] ? `<button data-reset="${key}">Reset</button>` : ""
-          }</div>`,
-      )
-      .join("")}</div>
-    <div class="actions"><button id="resetDefaults" class="secondary"${Object.keys(chosen).length ? "" : " disabled"}>Reset all</button><button data-close class="primary">Done</button></div>`,
+    `<h2>Settings</h2><p>These apply to new elements only. Everything already on a board keeps its look.</p>
+    <div class="settings-list">
+      <div class="settings-row stacked"><span>Font</span>${settingsChoices(
+        "fontFamily",
+        fontChoices
+          .map(
+            ([value, label, family]) =>
+              `<button type="button" data-value="${value}" title="${value}" aria-label="${value}" style="font-family:${family.replace(/"/g, "'")} !important"><span class="font-sample" style="font-family:${family.replace(/"/g, "'")} !important">Aa</span><span class="font-name" style="font-family:${family.replace(/"/g, "'")} !important">${label}</span></button>`,
+          )
+          .join(""),
+      )}</div>
+      <div class="settings-row"><span>Sloppiness</span>${settingsChoices("sloppiness", strokes.sloppiness.map(svg).join(""))}</div>
+      <div class="settings-row"><span>Stroke width</span>${settingsChoices("sw", strokes.strokeWidth.map(svg).join(""))}</div>
+      <div class="settings-row stacked"><span>Default font size</span>${settingsChoices(
+        "fontSize",
+        labelChoices[0][1]
+          .map(
+            ([value, label, glyph, size]) =>
+              `<button type="button" data-value="${value}" title="${label}" aria-label="${label}"><span class="choice-glyph" style="font-size:${size}px">${glyph}</span></button>`,
+          )
+          .join(""),
+      )}</div>
+    </div>
+    <div class="actions"><button id="resetDefaults" class="secondary">Reset all</button><button data-close class="primary">Done</button></div>`,
   );
-  for (const holder of $("modalBody").querySelectorAll("[data-preview]"))
-    drawDefaultPreview(holder, holder.dataset.preview);
-  $("afterTerminatorChoice").onchange = async (e) => {
-    const next = { ...M.getDefaults(), afterTerminator: e.target.value };
-    if (next.afterTerminator === "process") delete next.afterTerminator;
-    await saveDefaults(next);
-  };
-  for (const b of $("modalBody").querySelectorAll("[data-reset]"))
-    b.onclick = async () => {
-      const next = M.getDefaults();
-      delete next[b.dataset.reset];
-      await saveDefaults(next);
-      defaultsPanel();
-
-    };
+  for (const group of $("modalBody").querySelectorAll("[data-setting]"))
+    for (const b of group.querySelectorAll("button"))
+      b.onclick = () => {
+        const key = group.dataset.setting;
+        chooseSetting(key, key === "fontFamily" ? b.dataset.value : Number(b.dataset.value));
+      };
   $("resetDefaults").onclick = async () => {
     await saveDefaults({});
-    defaultsPanel();
-
+    syncSettingsPanel();
   };
+  syncSettingsPanel();
 }
