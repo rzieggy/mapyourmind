@@ -1,5 +1,17 @@
 # mapyourmind project notes
 
+## Batch C+D, 2026-10-05 (selection, colours, Settings; override older decisions below)
+- Marquee also selects connectors whose drawn line or label touches it; a selected connector gets a soft blue halo along
+  its drawn path and label (UI only). Stroke and Text colour have the shared preset row + pinned custom picker; swatches
+  have no border (white keeps an inset hairline). Settings (⌘,) is four global choices for new elements only.
+- **Supersedes the 2026-09-29 "After Start / end" decision below:** Tab/Enter after a flowchart Start / end always gives
+  a white rectangle; a saved `afterTerminator` and per-shape preference entries are dropped on load, never refused.
+- Sweep counts, baseline (`e5ef201`) → final (`fd74215`): node 40 → 42 · integration 479 → 492 · schema 11 → 11 ·
+  navigation 113 → 113 · notebook 60 → 60 · feedback 91 → 112 · Program A 588 → 588 · Program 604 → 604 ·
+  refinements 61 → 61; storage test passes with old/mixed/invalid/new preference files. Perf unchanged (whole-diagram
+  paint 30.2 → 29.0 ms). Flake seen once: refinements "Pointer trail fades completely within 800ms" (passed 3/3 reruns).
+- Local commits only; nothing pushed, tagged, released or installed.
+
 ## Editor refinements, 2026-10-01 (override older decisions below)
 - Approved requirements: `REQUIREMENTS-EDITOR-REFINEMENTS.md`. Command K palette and floating node toolbar are disabled;
   node/connector actions use right-click. Style panel no longer carries defaults, Comment, Duplicate or Delete buttons.
