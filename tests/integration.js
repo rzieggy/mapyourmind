@@ -59,11 +59,11 @@ assert(
   document.fonts.check("25px Excalifont"),
   "Bundled handwritten font loads offline",
 );
-$("newDoc").click();
+$("sidebarNewDocument").click();for(let i=0;i<200&&!$("nameInput");i++)await new Promise(r=>setTimeout(r,10));
 $("nameInput").value = "Launch plan";
 $("nameSubmit").click();
 await wait(100);
-assert(current.title === "Launch plan", "Create document through home screen");
+assert(current.title === "Launch plan", "Create document from the sidebar");
 function pointer(type, x, y, extra = {}) {
   const box = canvas.getBoundingClientRect();
   canvas.dispatchEvent(
@@ -847,9 +847,8 @@ assert(
   "A new Board opens with both node tools",
 );
 const fixtureId = current.id;
-await goHome();
-state.documents = state.documents.filter((doc) => doc.id !== fixtureId);
 openDoc(primaryId);
+state.documents = state.documents.filter((doc) => doc.id !== fixtureId);
 // Reopening legacy data migrates connectors, not labels or relationships.
 const migrationBefore = M.clone(d());
 const migrationEdge = d().edges[0];
@@ -1798,7 +1797,7 @@ current.canvas=v13Before;selected.clear();closeNotes();await window.flushSave();
 const v14Before=M.clone(d());if(editing)commitEdit();closeNotes();setTool("select");
 await document.fonts.load('400 12px "Google Sans"');await document.fonts.load('500 12px "Google Sans"');
 assert([...document.fonts].some(f=>f.family.replaceAll('"','')==="Google Sans"&&f.status==="loaded"),"Bundled Google Sans loads offline");
-assert(getComputedStyle($("newDoc")).fontFamily.includes("Google Sans")&&getComputedStyle($("inspector")).fontFamily.includes("Google Sans"),"Home and sidebar use Google Sans");
+assert(getComputedStyle($("documentSidebar")).fontFamily.includes("Google Sans")&&getComputedStyle($("inspector")).fontFamily.includes("Google Sans"),"Sidebar and style panel use Google Sans");
 current.canvas=M.blank();const commentNode=M.node("flow",140,180,"process","A node with comments");d().nodes.push(commentNode);selected=new Set([commentNode.id]);inspect();zoom(1);
 beginEdit(commentNode);assert(getComputedStyle(richEditor).fontFamily.includes("Excalifont"),"Whiteboard text editor keeps Excalifont");commitEdit();canvas.focus();
 openNotes(commentNode.id);
@@ -1889,7 +1888,7 @@ current.canvas=circleBefore;selected.clear();inspect();await window.flushSave();
 
 const title = current.title,
   id = current.id;
-await goHome();
+// Duplicate, Trash and Restore run from the sidebar while the document is open.
 docAction("duplicate", id);
 assert(state.documents.length === 2, "Document duplicate is independent");
 await docAction("trash", id);
@@ -1902,7 +1901,7 @@ assert(
   state.documents.find((n) => n.id === id).trashedAt === null,
   "Trash document can be restored",
 );
-await goHome();$("toast").hidden=true;await wait(100);await native("snapshot",{name:"home"});
+$("toast").hidden=true;
 openDoc(id);
 const text = d().nodes.find((n) => n.kind === "text");
 text.text = "From idea to plan";

@@ -27,7 +27,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 for (let i=0; i<100 && !loaded; i++) await wait(50);
 assert(loaded, "Local store loaded");
 await document.fonts.ready;
-$("newDoc").click(); $("nameInput").value = "Feedback verification"; $("nameSubmit").click();
+$("sidebarNewDocument").click();for(let i=0;i<200&&!$("nameInput");i++)await new Promise(r=>setTimeout(r,10)); $("nameInput").value = "Feedback verification"; $("nameSubmit").click();
 const primary = current.id;
 function pointer(type, x, y, extra={}) {
   const b = canvas.getBoundingClientRect();

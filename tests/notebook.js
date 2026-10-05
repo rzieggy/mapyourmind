@@ -105,7 +105,6 @@ assert(pdf.pages>1&&pdf.text.includes("Paragraph 99"),"Long PDF has multiple pag
 assert(!pdf.text.includes("NOTE STYLE")&&!pdf.text.includes("Export PDF"),"PDF excludes toolbar and sidebar");
 assert(pdf.text.includes("Meeting outcomes"),"PDF retains selectable text");
 noteBody.innerHTML=emptyHTML;syncNotebook();await window.flushSave();
-await goHome();
 await docAction("duplicate",note.id);
 const copy=state.documents.find(x=>x.id!==note.id&&x.mode==="notes");
 assert(copy.note.html===note.note.html,"Duplicating Notes preserves formatted content");
@@ -120,12 +119,6 @@ noteBody.dispatchEvent(new KeyboardEvent("keydown",{key:"&",code:"Digit7",metaKe
 assert(!!noteBody.querySelector("ol"),"Command Shift 7 creates a numbered list");
 noteBody.dispatchEvent(new KeyboardEvent("keydown",{key:"*",code:"Digit8",metaKey:true,shiftKey:true,bubbles:true,cancelable:true}));
 assert(!!noteBody.querySelector("ul"),"Command Shift 8 creates a bullet list");
-await goHome();
-assert($("importMindmap").classList.contains("secondary")&&$("importMindmap").querySelector("svg"),"Home import is a secondary icon button");
-const a=$("importMindmap").getBoundingClientRect(),b=$("newDoc").getBoundingClientRect();
-assert(Math.abs(a.top-b.top)<2&&b.left>a.right,"Import sits beside New document");
-await native("snapshot",{name:"home"});
-
 await switchSidebarDocument(note.id);
 noteBody.innerHTML='<p>Mango <b>mango</b> and <i>Man</i>go</p><p>Other text</p>';syncNotebook();
 const findNoteHTML=current.note.html,findNoteUndo=noteUndo.length;

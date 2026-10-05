@@ -313,7 +313,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var noteMode = false
     var exportingPDF = false
     var pdfRenderer: NotePDFRenderer?
-    var savedClipboard = [[NSPasteboard.PasteboardType: Data]]()
+    let uiTest = CommandLine.arguments.contains("--ui-test")
+    // Tests copy and paste on their own pasteboard, never the person's clipboard.
+    lazy var pasteboard: NSPasteboard = uiTest ? NSPasteboard(name: NSPasteboard.Name("app.mapyourmind.ui-test")) : .general
     let queue = DispatchQueue(label: "local.flowchart.storage", qos: .userInitiated)
     var testsStarted = false
     // Browser mode (File › Open in Browser). The server runs in this process and the
@@ -330,18 +332,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     func applicationDidFinishLaunching(_ notification: Notification) {
         do { store = try LocalStore(directory: CommandLine.arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-ui-" + UUID().uuidString) : nil) } catch { let alert = NSAlert(); alert.messageText = "Local storage could not be opened"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return }
         if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "mapyourmind was started from Terminal. Close the mapyourmind tab, press Control-C in that Terminal window, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
-        if CommandLine.arguments.contains("--ui-test") {
-            savedClipboard = (NSPasteboard.general.pasteboardItems ?? []).map { item in Dictionary(uniqueKeysWithValues: item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }) }
-        }
         let controller = WKUserContentController(); controller.add(self, name: "native")
         let configuration = WKWebViewConfiguration(); configuration.userContentController = controller; configuration.websiteDataStore = .nonPersistent()
         web = WKWebView(frame: .zero, configuration: configuration); web.navigationDelegate = self; web.uiDelegate = self
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 840), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "mapyourmind"; window.minSize = NSSize(width: 940, height: 650); window.contentView = web; window.delegate = self; window.center(); window.setFrameAutosaveName("LocalFlowchartWindow"); window.makeKeyAndOrderFront(nil)
+        window.title = "mapyourmind"; window.minSize = NSSize(width: 940, height: 650); window.contentView = web; window.delegate = self; window.center()
+        if uiTest {
+            // Tests run in an invisible window that takes no clicks, keys or focus,
+            // so the person can keep working while a suite runs. It stays ordered in
+            // and on top, so WebKit keeps painting and running animation frames.
+            window.alphaValue = 0; window.ignoresMouseEvents = true; window.level = .floating; window.orderFrontRegardless()
+        } else { window.setFrameAutosaveName("LocalFlowchartWindow"); window.makeKeyAndOrderFront(nil) }
         makeMenu()
         let url = Bundle.main.resourceURL!.appendingPathComponent("web/index.html")
         web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-        NSApp.activate(ignoringOtherApps: true)
+        if !uiTest { NSApp.activate(ignoringOtherApps: true) }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard CommandLine.arguments.contains("--ui-test"), web.url?.lastPathComponent == "index.html", !testsStarted else { return }
@@ -356,16 +361,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                 self.web.takeSnapshot(with: nil) { image, error in
                     if let image = image, let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) { try? png.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("local-flowchart-preview.png")) }
                     try? FileManager.default.removeItem(at: self.store.directory)
-                    self.restoreTestClipboard(); exit(0)
+                    self.pasteboard.releaseGlobally(); exit(0)
                 }
-            case .failure(let error): print("UI FAIL: \(error)"); self.restoreTestClipboard(); exit(1)
+            case .failure(let error): print("UI FAIL: \(error)"); self.pasteboard.releaseGlobally(); exit(1)
             }
         }
-    }
-    func restoreTestClipboard() {
-        NSPasteboard.general.clearContents()
-        let items = savedClipboard.map { values -> NSPasteboardItem in let item = NSPasteboardItem(); for (type, data) in values { item.setData(data, forType: type) }; return item }
-        NSPasteboard.general.writeObjects(items)
     }
     func makeMenu() {
         let main = NSMenu(); let appItem = NSMenuItem(); main.addItem(appItem); let appMenu = NSMenu(); appItem.submenu = appMenu
@@ -412,7 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             alert.addButton(withTitle: "Try again"); alert.addButton(withTitle: "Stay here")
             alert.beginSheetModal(for: window) { response in if response == .alertFirstButtonReturn { self.web.evaluateJavaScript("window.openInBrowser()", completionHandler: nil) } }
         case "browserOpenTab": openBrowserTab()
-        case "browserCopyLink": if let url = browser?.url { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url.absoluteString, forType: .string) }
+        case "browserCopyLink": if let url = browser?.url { pasteboard.clearContents(); pasteboard.setString(url.absoluteString, forType: .string) }
         case "browserBack": endBrowserMode("back") { self.showEditor() }
         case "documentMode":
             noteMode = b["mode"] as? String == "notes"
@@ -495,7 +495,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         case "load": queue.async { do { var result = try self.store.load(); result["clock"] = monotonicClock(); self.reply(id, result: result) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }
         case "save": guard let state = b["state"] else { return }; queue.async { do { try self.store.save(state); self.reply(id, result: true) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }
         case "clipboardWrite":
-            let board = NSPasteboard.general; board.clearContents()
+            let board = pasteboard; board.clearContents()
             let text = b["text"] as? String ?? ""; var ok = board.setString(text, forType: .string)
             if let editable = b["editable"] as? String { ok = board.setString(editable, forType: NSPasteboard.PasteboardType("app.localflowchart.elements")) && ok }
             reply(id, result: ok)
@@ -508,10 +508,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             }
         case "clipboardProbe":
             guard CommandLine.arguments.contains("--ui-test") else { reply(id, error: "Unavailable"); return }
-            let image = NSPasteboard.general.data(forType: .png).flatMap { NSBitmapImageRep(data: $0) }
+            let image = pasteboard.data(forType: .png).flatMap { NSBitmapImageRep(data: $0) }
             reply(id, result: ["png": image != nil, "alpha": image?.hasAlpha ?? false, "width": image?.pixelsWide ?? 0, "height": image?.pixelsHigh ?? 0, "cornerAlpha": image?.colorAt(x: 0, y: 0)?.alphaComponent ?? -1])
         case "clipboardRead":
-            let board = NSPasteboard.general
+            let board = pasteboard
             var clip: [String: Any] = ["text": board.string(forType: .string) ?? "", "editable": board.string(forType: NSPasteboard.PasteboardType("app.localflowchart.elements")) ?? ""]
             if let data = board.data(forType: .png) ?? board.data(forType: .tiff), let image = NSBitmapImageRep(data: data) {
                 guard image.pixelsWide > 0, image.pixelsHigh > 0, image.pixelsWide * image.pixelsHigh <= 32_000_000, let png = image.representation(using: .png, properties: [:]), png.count <= 30_000_000 else { reply(id, error: "Image exceeds the 32 megapixel or 30 MB limit. Resize it before pasting."); return }
@@ -520,7 +520,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             reply(id, result: clip)
         case "png":
             guard let base64 = b["data"] as? String, let data = Data(base64Encoded: base64), data.count < 200_000_000, NSImage(data: data) != nil else { reply(id, error: "The PNG image is invalid or too large."); return }
-            if b["clipboard"] as? Bool == true { NSPasteboard.general.clearContents(); if NSPasteboard.general.setData(data, forType: .png) { reply(id, result: true) } else { reply(id, error: "Tidak dapat menyalin gambar. Coba Export PNG.") } }
+            if b["clipboard"] as? Bool == true { pasteboard.clearContents(); if pasteboard.setData(data, forType: .png) { reply(id, result: true) } else { reply(id, error: "Tidak dapat menyalin gambar. Coba Export PNG.") } }
             else { let panel = NSSavePanel(); panel.allowedContentTypes = [.png]; panel.nameFieldStringValue = (b["filename"] as? String ?? "Diagram") + ".png"; panel.beginSheetModal(for: window) { response in
                 guard response == .OK, let url = panel.url else { self.reply(id, result: false); return }
                 do { try data.write(to: url, options: .atomic); self.reply(id, result: true) } catch { self.reply(id, error: error.localizedDescription) }
@@ -592,7 +592,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window.title = "mapyourmind"
         let url = Bundle.main.resourceURL!.appendingPathComponent("web/index.html")
         web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-        window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        if uiTest { window.orderFrontRegardless() } else { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     }
     func browserTabAskedToReturn() { endBrowserMode("back", immediately: true) { self.showEditor() } }
     func browserTabFinished() { browserFinish?() }
@@ -663,5 +663,5 @@ if CommandLine.arguments.contains("--storage-test") {
 } else if CommandLine.arguments.contains("--serve") {
     serveBrowser()
 } else {
-    let app = NSApplication.shared; let delegate = AppDelegate(); app.delegate = delegate; app.setActivationPolicy(.regular); app.run()
+    let app = NSApplication.shared; let delegate = AppDelegate(); app.delegate = delegate; app.setActivationPolicy(CommandLine.arguments.contains("--ui-test") ? .accessory : .regular); app.run()
 }

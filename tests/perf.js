@@ -32,14 +32,14 @@ for (let i = 0; i < noise.data.length; i += 65536)
   crypto.getRandomValues(noise.data.subarray(i, i + 65536));
 for (let i = 3; i < noise.data.length; i += 4) noise.data[i] = 255;
 pc.putImageData(noise, 0, 0);
-$("newDoc").click(); $("nameInput").value = "Image library"; $("nameSubmit").click();
+$("sidebarNewDocument").click();for(let i=0;i<200&&!$("nameInput");i++)await new Promise(r=>setTimeout(r,10)); $("nameInput").value = "Image library"; $("nameSubmit").click();
 const image = M.node("image", 0, 0);
 image.w = image.h = 400;
 image.imageData = photo.toDataURL("image/png");
 d().nodes.push(image);
 results.push(`image store: ${(image.imageData.length / 1048576).toFixed(1)} MB`);
 
-$("newDoc").click(); $("nameInput").value = "Large diagram"; $("nameSubmit").click();
+$("sidebarNewDocument").click();for(let i=0;i<200&&!$("nameInput");i++)await new Promise(r=>setTimeout(r,10)); $("nameInput").value = "Large diagram"; $("nameSubmit").click();
 const words = "plan review launch budget hiring design research metrics roadmap risk".split(" ");
 const label = (i) => `${words[i % 10]} ${words[(i * 7) % 10]} ${i}`;
 // 16 mind maps of 100 nodes, four levels deep, and a 400-node flowchart.
