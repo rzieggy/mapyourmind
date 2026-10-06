@@ -5,7 +5,7 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 
 ## Install
 
-1. Download `mapyourmind-1.34.0-AppleSilicon.zip` and double-click it to unzip.
+1. Download `mapyourmind-1.36.1-AppleSilicon.zip` and double-click it to unzip.
 2. Drag `mapyourmind.app` into your **Applications** folder.
 3. Open it. The first time, macOS blocks it because this is a personal build that isn't notarized by Apple:
    - **macOS 15 or newer:** open the app once and close the warning. Then go to **System Settings → Privacy & Security**,
