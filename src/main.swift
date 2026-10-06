@@ -1,5 +1,7 @@
 import Cocoa
 import WebKit
+// macOS pulls a titled window back onto a screen; the test window must stay off every screen.
+final class UnconstrainedWindow: NSWindow { override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect } }
 import Darwin
 import PDFKit
 import CryptoKit
@@ -351,13 +353,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let controller = WKUserContentController(); controller.add(self, name: "native")
         let configuration = WKWebViewConfiguration(); configuration.userContentController = controller; configuration.websiteDataStore = .nonPersistent()
         web = WKWebView(frame: .zero, configuration: configuration); web.navigationDelegate = self; web.uiDelegate = self
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 840), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = (uiTest ? UnconstrainedWindow.self : NSWindow.self).init(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 840), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "mapyourmind"; window.minSize = NSSize(width: 940, height: 650); window.contentView = web; window.delegate = self; window.center()
         if uiTest {
-            // Tests run in an invisible window that takes no clicks, keys or focus,
-            // so the person can keep working while a suite runs. It stays ordered in
-            // and on top, so WebKit keeps painting and running animation frames.
-            window.alphaValue = 0; window.ignoresMouseEvents = true; window.level = .floating; window.orderFrontRegardless()
+            // Tests run in a window placed far off every screen, transparent and
+            // click-through, in an app that never activates, so the person can keep
+            // working, even in a full-screen Space. WebKit would treat an off-screen
+            // window as hidden and pause painting and animation frames, so occlusion
+            // detection is switched off for the test web view only.
+            let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:"); if web.responds(to: occlusion) { web.perform(occlusion, with: false) } else { print("NOTE web view cannot disable occlusion detection") }
+            window.alphaValue = 0; window.ignoresMouseEvents = true; window.collectionBehavior = [.transient, .ignoresCycle]
+            window.setFrameOrigin(NSPoint(x: -40000, y: -40000)); window.orderFrontRegardless(); window.setFrameOrigin(NSPoint(x: -40000, y: -40000))
         } else { window.setFrameAutosaveName("LocalFlowchartWindow"); window.makeKeyAndOrderFront(nil) }
         makeMenu()
         let url = Bundle.main.resourceURL!.appendingPathComponent("web/index.html")
