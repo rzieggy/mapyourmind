@@ -1721,7 +1721,7 @@ assert(markAt(formatted,5).underline&&!markAt(formatted,0).underline,"Command U 
 richEditor.setSelectionRange(11,20);key(richEditor,"h",{metaKey:true});await wait(20);
 assert(markAt(formatted,11).highlight==="#fff0a6"&&!markAt(formatted,0).highlight,"Command H highlights selected text in yellow");
 assert(!$("inspector").hidden,"Highlight palette remains available while editing text");
-$("highlightColors").children[1].click();
+$("highlightColors").children[2].click();
 assert(markAt(formatted,11).highlight==="#e6def7"&&!markAt(formatted,0).highlight,"Pastel highlight palette preserves the selected text range");
 richEditor.setRangeText("!",2,2,"end");richEditor.dispatchEvent(new Event("input"));
 assert(formatted.text==="Bo!ld under highlight"&&markAt(formatted,2).bold&&markAt(formatted,12).highlight==="#e6def7","Text insertion preserves and shifts rich formatting");
@@ -1739,31 +1739,26 @@ assert(Math.abs(pastedImage.x-imageX-50)<10,"Pasted images can be repositioned")
 // A pasted image arrives with no border, and the control has to work both ways.
 selected = new Set([pastedImage.id]);
 inspect();
+const noStroke = () => $("strokeColors").querySelector('[data-color="transparent"]');
 const borderControls = () =>
-  [
-    $("strokeColorSection").hidden,
-    ...["strokeWidth", "strokeStyle", "sloppiness"].map(
-      (id) => $(id).parentElement.hidden,
-    ),
-  ];
+  ["strokeWidth", "strokeStyle", "sloppiness"].map((id) => $(id).parentElement.hidden);
 assert(
   pastedImage.stroke === "transparent" &&
-    $("transparentStroke").textContent === "Add border" &&
+    !$("strokeColorSection").hidden && !noStroke().hidden && noStroke().classList.contains("active") &&
     borderControls().every(Boolean),
-  "A borderless image offers only Add border, not controls for a border it has not got",
+  "A borderless image shows its stroke row on No stroke, without controls for a border it has not got",
 );
-$("transparentStroke").click();
+$("strokeColors").querySelector('[data-color="#1b1b1f"]').click();
 inspect();
 assert(
   pastedImage.stroke === "#1b1b1f" &&
     pastedImage.sw === 1 &&
     pastedImage.strokeStyle === "solid" &&
     pastedImage.sloppiness === 1,
-  "Add border starts at the thinnest solid black stroke with medium sloppiness",
+  "Picking a colour for a borderless image starts at the thinnest solid stroke with medium sloppiness",
 );
 assert(
-  borderControls().every((hidden) => !hidden) &&
-    $("transparentStroke").textContent === "Remove border",
+  borderControls().every((hidden) => !hidden) && !noStroke().classList.contains("active"),
   "The border controls appear only once the image has a border",
 );
 assert(
@@ -1772,13 +1767,13 @@ assert(
   ),
   "That stroke is drawn as an outline around the image",
 );
-$("transparentStroke").click();
+noStroke().click();
 inspect();
 assert(
-  pastedImage.stroke === "transparent" && $("transparentStroke").textContent === "Add border",
-  "The same control takes the border off again",
+  pastedImage.stroke === "transparent" && noStroke().classList.contains("active"),
+  "The No stroke swatch takes the border off again",
 );
-$("transparentStroke").click();
+$("strokeColors").querySelector('[data-color="#1b1b1f"]').click();
 selected=new Set([pastedImage.id]);await copyEditable();await pasteEditable();
 assert(d().nodes.at(-1).imageData===pastedImage.imageData,"Editable image copies preserve embedded pixels");
 await exportPNG(true,"selection","transparent",1);

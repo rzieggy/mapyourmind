@@ -2990,7 +2990,11 @@ function inspect() {
   const borderless = n?.kind === "image" && n.stroke === "transparent";
   // A shape with no stroke keeps width and sloppiness, which still shape its fill.
   const strokeless = fillable && n.stroke === "transparent";
-  $("strokeColorSection").hidden = n?.kind === "sticker" || borderless || strokeless;
+  // The colour row stays for a strokeless shape or image: its transparent
+  // swatch shows the current state, and any colour brings the outline back.
+  $("strokeColorSection").hidden = n?.kind === "sticker";
+  $("strokeColors").querySelector('[data-color="transparent"]').hidden =
+    !ns.some((a) => !["text", "sticker"].includes(a.kind));
   $("strokeWidth").parentElement.hidden = n?.kind === "sticker" || borderless;
   for (const [key, value] of [
     ["strokeColor", n?.stroke || e?.stroke],
@@ -3018,10 +3022,6 @@ function inspect() {
   }
   $("fontSize").parentElement.hidden = !textual;
   $("textColorSection").hidden = !textual;
-  $("transparentStroke").hidden = !fillable && n?.kind !== "image";
-  $("transparentStroke").textContent =
-    (n?.stroke === "transparent" ? "Add " : "Remove ") + (fillable ? "stroke" : "border");
-  $("transparentStroke").setAttribute("aria-pressed", String(n?.stroke !== "transparent"));
   $("edgeStyle").parentElement.hidden = !e;
   $("edgeArrow").parentElement.hidden = !e || e.tree;
   $("alignSection").hidden = !ns.length;
@@ -3037,7 +3037,7 @@ function inspect() {
   syncCustomSwatch($("fillCustom"), n?.fill);
   // Stroke and text colours read across shapes and connectors alike.
   const strokes = new Set(
-      [...ns.filter((a) => a.stroke !== "transparent"), ...es].map((a) => a.stroke),
+      [...ns.filter((a) => a.kind !== "sticker"), ...es].map((a) => a.stroke),
     ),
     texts = new Set(
       [...ns.filter((a) => !["image", "sticker"].includes(a.kind)), ...es].map(
@@ -3099,14 +3099,15 @@ for (const [row, key, noun] of [
   ["strokeColors", "stroke", "Stroke"],
   ["textColors", "textColor", "Text"],
 ])
-  for (const color of lineColors) {
+  for (const color of row === "strokeColors" ? ["transparent", ...lineColors] : lineColors) {
     const b = document.createElement("button");
     b.className = "swatch";
     if (color === "#ffffff") b.classList.add("white");
-    b.style.background = color;
+    if (color === "transparent") b.classList.add("transparent");
+    else b.style.background = color;
     b.dataset.color = color;
-    b.title = color;
-    b.ariaLabel = noun + " " + color;
+    b.title = color === "transparent" ? "No stroke" : color;
+    b.ariaLabel = color === "transparent" ? "No stroke" : noun + " " + color;
     b.onclick = () => styleSelection(key, color);
     $(row).append(b);
   }
@@ -3117,7 +3118,7 @@ function syncPalette(row, holder, values) {
     b.classList.toggle("active", active);
     b.setAttribute("aria-pressed", String(active));
   }
-  syncCustomSwatch($(holder), value, lineColors);
+  syncCustomSwatch($(holder), value, [...lineColors, "transparent"]);
 }
 // The custom swatch shows the colour in use when it is not one of the presets,
 // and otherwise stays a plain colour wheel.
@@ -3133,6 +3134,10 @@ function styleSelection(key, value) {
   mutate(() => {
     for (const n of d().nodes.filter((n) => selected.has(n.id))) {
       if (["fontFamily", "fontSize"].includes(key) && ["image", "sticker"].includes(n.kind)) continue;
+      if (key === "stroke" && value === "transparent" && ["text", "sticker"].includes(n.kind)) continue;
+      // An image border comes back quiet: thin, solid and clean.
+      if (key === "stroke" && n.kind === "image" && n.stroke === "transparent" && value !== "transparent")
+        Object.assign(n, { sw: 1, strokeStyle: "solid", sloppiness: 1 });
       n[key] = value;
       // Choosing a colour for a shape that had none should show that colour.
       if (key === "fill" && value !== "transparent" && !n.fillStyle) n.fillStyle = "solid";
@@ -3151,7 +3156,8 @@ function styleSelection(key, value) {
           "fontSize",
           "textColor",
         ].includes(key) &&
-        !(key === "arrow" && e.tree)
+        !(key === "arrow" && e.tree) &&
+        !(key === "stroke" && value === "transparent")
       )
         e[key] = value;
     }
@@ -3174,25 +3180,6 @@ for (const [id, key, numeric] of [
   $(id).onchange = (e) =>
     styleSelection(key, numeric ? Number(e.target.value) : e.target.value);
 $("edgeArrow").onchange = (e) => styleSelection("arrow", e.target.checked);
-// Adding a border starts from a known, quiet state rather than whatever the
-// controls happened to be left on, and does it as a single change.
-// A shape only gets its colour back; its width and style were never hidden.
-$("transparentStroke").onclick = () => {
-  const outlined = () =>
-    d()?.nodes.filter((a) => selected.has(a.id) && !["text", "sticker"].includes(a.kind)) || [];
-  const adding = outlined().some((a) => a.stroke === "transparent");
-  mutate(() => {
-    for (const n of outlined())
-      Object.assign(
-        n,
-        !adding
-          ? { stroke: "transparent" }
-          : n.kind === "image"
-            ? { stroke: "#1b1b1f", sw: 1, strokeStyle: "solid", sloppiness: 1 }
-            : { stroke: "#1b1b1f" },
-      );
-  });
-};
 function align(action) {
   const ns = d().nodes.filter((n) => selected.has(n.id) && n.kind !== "mind");
   if (ns.length < 2) {

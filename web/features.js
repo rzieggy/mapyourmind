@@ -471,6 +471,17 @@ for (const color of [
   };
   $("highlightColors").append(button);
 }
+// No highlight comes first and takes the highlight off; it is never stored as a colour.
+{
+  const button = document.createElement("button");
+  button.className = "swatch transparent";
+  button.dataset.color = "transparent";
+  button.title = "No highlight";
+  button.setAttribute("aria-label", button.title);
+  button.onpointerdown = (e) => e.preventDefault();
+  button.onclick = () => applyTextFormat("highlight", false);
+  $("highlightColors").prepend(button);
+}
 $("highlightColors").parentElement.append(
   customSwatch(
     "Custom highlight colour",

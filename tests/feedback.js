@@ -147,29 +147,43 @@ const pixelCanvas=document.createElement("canvas");pixelCanvas.width=pixelCanvas
 drawImageNode(pc,img);const plain=pc.getImageData(0,0,150,150).data.slice();pc.clearRect(0,0,150,150);
 img.stroke="#ff0000";img.sw=3;drawImageNode(pc,img);const bordered=pc.getImageData(0,0,150,150).data;
 assert(bordered.some((v,i)=>v!==plain[i]),"Image stroke changes actual rendered pixels");
-d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").click();assert(img.stroke==="transparent","Image stroke can return to transparent");
+d().nodes.push(img);selected=new Set([img.id]);inspect();$("strokeColors").querySelector('[data-color="transparent"]').click();assert(img.stroke==="transparent","Image stroke can return to transparent");
 {
+  const noStroke=()=>$("strokeColors").querySelector('[data-color="transparent"]');
   const box=M.node("flow",2400,2400,"process","No outline");box.sw=3;d().nodes.push(box);selected=new Set([box.id]);inspect();
-  assert(!$("transparentStroke").hidden&&$("transparentStroke").textContent==="Remove stroke","Shapes offer Remove stroke");
-  $("transparentStroke").click();inspect();
-  assert(box.stroke==="transparent"&&M.validate(d())&&$("strokeColorSection").hidden&&$("strokeStyle").parentElement.hidden&&!$("strokeWidth").parentElement.hidden&&$("transparentStroke").textContent==="Add stroke","A shape can have no stroke, and hides the colour it has not got");
+  assert(!$("transparentStroke")&&!noStroke().hidden&&$("strokeColors").firstElementChild===noStroke(),"Shapes offer a No stroke swatch first in the stroke row, and no separate button");
+  noStroke().click();inspect();
+  assert(box.stroke==="transparent"&&M.validate(d())&&!$("strokeColorSection").hidden&&noStroke().classList.contains("active")&&$("strokeStyle").parentElement.hidden&&!$("strokeWidth").parentElement.hidden,"A shape can have no stroke and keeps its stroke row to bring it back");
   const sc=document.createElement("canvas");sc.width=sc.height=400;const sx=sc.getContext("2d");
   drawNode(sx,{...box,x:20,y:20,fill:"transparent",text:""},false);
   assert(!sx.getImageData(0,0,400,400).data.some((v,i)=>i%4===3&&v>0),"A transparent stroke paints nothing");
-  $("transparentStroke").click();inspect();
-  assert(box.stroke==="#1b1b1f"&&box.sw===3&&!$("strokeColorSection").hidden,"Add stroke restores the colour and keeps the width");
+  $("strokeColors").querySelector('[data-color="#1b1b1f"]').click();inspect();
+  assert(box.stroke==="#1b1b1f"&&box.sw===3&&!noStroke().classList.contains("active"),"Picking a colour brings the stroke back and keeps the width");
   const free=M.node("text",2400,2600);d().nodes.push(free);selected=new Set([free.id]);inspect();
-  assert($("transparentStroke").hidden,"Free text has no stroke to remove");
+  assert(noStroke().hidden,"Free text has no stroke to remove");
+  const link=M.connect(d(),box.id,img.id);selected=new Set([link.id]);inspect();
+  assert(noStroke().hidden,"Connectors do not offer No stroke");
+}
+
+{
+  let hl=M.node("flow",2400,3200,"process","Marked words");d().nodes.push(hl);selected=new Set([hl.id]);inspect();
+  const none=$("highlightColors").firstElementChild;
+  assert(none.dataset.color==="transparent"&&none.classList.contains("transparent"),"Highlight starts with a No highlight swatch");
+  $("highlightColors").children[1].click();
+  assert((hl.marks||[]).some(m=>m.highlight),"A highlight colour marks the text");
+  none.click();
+  assert(!(hl.marks||[]).some(m=>m.highlight)&&M.validate(d()),"No highlight takes the highlight off and stores no colour");
+  undo();hl=d().nodes.find(n=>n.id===hl.id);
 }
 
 // Batch D: stroke and text colours get the same preset row and pinned custom
 // picker as fill, and no swatch in the panel carries a border.
 {
   let box=M.node("flow",2400,2800,"process","Colours");d().nodes.push(box);selected=new Set([box.id]);inspect();
-  const presets=["#1b1b1f","#ffffff","#868e96","#e03131","#f08c00","#2f9e44","#2474d0","#7048e8"];
+  const presets=["#1b1b1f","#ffffff","#868e96","#e03131","#f08c00","#2f9e44","#2474d0","#7048e8"];const strokePresets=["transparent",...presets];
   for(const [row,holder] of [["strokeColors","strokeCustom"],["textColors","textCustom"]]){
     const colours=[...$(row).querySelectorAll("[data-color]")].map(b=>b.dataset.color);
-    assert(JSON.stringify(colours)===JSON.stringify(presets)&&$(row).nextElementSibling===$(holder)&&$(holder).parentElement.classList.contains("palette-row"),row+" offers black, white and six strong presets with the custom picker pinned at the right");
+    assert(JSON.stringify(colours)===JSON.stringify(row==="strokeColors"?strokePresets:presets)&&$(row).nextElementSibling===$(holder)&&$(holder).parentElement.classList.contains("palette-row"),row+" offers black, white and six strong presets with the custom picker pinned at the right");
   }
   for(const [row,key] of [["strokeColors","stroke"],["textColors","textColor"]]){
     const before=box[key]||"#1b1b1f";
@@ -183,10 +197,10 @@ d().nodes.push(img);selected=new Set([img.id]);inspect();$("transparentStroke").
   $("textColor").value="#654321";$("textColor").dispatchEvent(new Event("change"));
   assert(box.textColor==="#654321"&&$("textCustom").classList.contains("active"),"The custom text picker still applies any colour");
   $("strokeColors").querySelector('[data-color="#1b1b1f"]').click();
-  $("transparentStroke").click();inspect();
-  assert(box.stroke==="transparent"&&$("strokeColorSection").hidden,"Remove stroke still hides the stroke palette");
-  $("transparentStroke").click();inspect();
-  assert(box.stroke==="#1b1b1f"&&!$("strokeColorSection").hidden&&$("strokeColors").querySelector('[data-color="#1b1b1f"]').classList.contains("active"),"Add stroke brings the palette back on black");
+  $("strokeColors").querySelector('[data-color="transparent"]').click();inspect();
+  assert(box.stroke==="transparent"&&!$("strokeColorSection").hidden,"No stroke keeps the stroke palette visible");
+  $("strokeColors").querySelector('[data-color="#1b1b1f"]').click();inspect();
+  assert(box.stroke==="#1b1b1f"&&$("strokeColors").querySelector('[data-color="#1b1b1f"]').classList.contains("active"),"Black brings the stroke back and shows as selected");
   const swatches=[...$("inspector").querySelectorAll(".swatch")];
   assert(swatches.length>=30&&swatches.every(b=>{const c=getComputedStyle(b);return ["Top","Right","Bottom","Left"].every(side=>parseFloat(c["border"+side+"Width"])===0);}),"No swatch in the style panel has a border");
   assert(swatches.filter(b=>b.classList.contains("white")).every(b=>getComputedStyle(b).boxShadow.includes("inset"))&&swatches.filter(b=>!b.classList.contains("white")).every(b=>getComputedStyle(b).boxShadow==="none"),"Only white swatches keep an inset hairline");
