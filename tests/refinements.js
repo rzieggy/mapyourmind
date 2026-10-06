@@ -161,6 +161,29 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
 }
 {
   setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);
+  const r=M.node("mind",200,200,"process","Outline root");d().nodes.push(r);autoSize(r);
+  const kid=M.extend(d(),r.id,true);M.layout(d());selected=new Set([kid.id]);beginEdit(kid,{newElement:true});text("Typing here");
+  const ed=$("textEditor"),cs=getComputedStyle(ed),box=ed.getBoundingClientRect();
+  assert(!ed.hidden&&ed.classList.contains("mind-text-editor")&&cs.outlineStyle==="solid"&&cs.outlineWidth==="1px"&&cs.outlineColor==="rgb(36, 116, 208)"&&parseFloat(cs.outlineOffset)>=2,"Editing a mind-map text node shows a thin accent outline around the field");
+  assert(Math.abs(box.width-kid.w*view.z)<1.5&&parseFloat(cs.paddingLeft)===(kid.w-textWrapWidth(kid))/2*view.z,"The outline adds no padding, so the field still wraps where the canvas does");
+  const narrow=box.width;text("Typing here and then quite a bit more");
+  assert(ed.getBoundingClientRect().width>narrow,"The outline grows with the text");
+  view.x=Math.round(120-r.x);view.y=Math.round(160-r.y);positionEditor();render();paint();await wait(120);await native("snapshot",{name:"mind-outline"});
+  const outlineNative=native;let png=null;native=async(action,data)=>{if(action==="png"){png=data.data;return null;}return outlineNative(action,data);};
+  try{await exportPNG(false,"all");}finally{native=outlineNative;}
+  const img=new Image();img.src="data:image/png;base64,"+png;await img.decode();const pc=document.createElement("canvas");pc.width=img.width;pc.height=img.height;
+  const px=pc.getContext("2d");px.drawImage(img,0,0);const data=px.getImageData(0,0,pc.width,pc.height).data;let blue=0;
+  for(let i=0;i<data.length;i+=4)if(data[i+3]&&Math.abs(data[i]-36)<20&&Math.abs(data[i+1]-116)<20&&Math.abs(data[i+2]-208)<20)blue++;
+  assert(png&&blue===0,"The editing outline never reaches a PNG export");
+  commitEdit();
+  assert(ed.hidden&&!ed.classList.contains("mind-text-editor"),"The outline disappears when editing ends");
+  const shape=M.node("flow",200,500,"process","Box");d().nodes.push(shape);autoSize(shape);selected=new Set([shape.id]);beginEdit(shape);
+  assert(getComputedStyle(ed).outlineStyle==="none","Shapes keep the borderless editor");commitEdit();
+  const free=M.node("text",200,700,"process","Free");d().nodes.push(free);autoSize(free);selected=new Set([free.id]);beginEdit(free);
+  assert(getComputedStyle(ed).outlineStyle==="none","Free text keeps the borderless editor");commitEdit();
+}
+{
+  setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);
   const a=M.node("flow",4000,4000,"process","Left");const b=M.node("flow",4300,4025,"process","Right");const far=M.node("flow",4000,4600,"process","Below");
   d().nodes.push(a,b,far);M.connect(d(),a.id,b.id);M.connect(d(),b.id,far.id);
   const cy=n=>n.y+n.h/2,cx=n=>n.x+n.w/2,before=M.clone(d());

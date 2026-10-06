@@ -2781,6 +2781,11 @@ function positionEditor() {
   const editor = $("textEditor"),
     scale = view.z;
   editor.classList.toggle("label-editor", n.kind === "label");
+  // A text-style mind-map node has no box of its own, so while it is edited a
+  // thin accent outline shows where the field is. It is a CSS outline on the
+  // overlay: it takes no space, so the text stays where the canvas draws it,
+  // and it never reaches the canvas, PNG or PDF.
+  editor.classList.toggle("mind-text-editor", n.kind === "mind" && M.isText(n) && !n.attachmentTo);
   if (n.kind === "label") {
     // Padding and border sit inside the box, so the field is the label box plus
     // its border, plus slack for WebKit line boxes that round up. Without it the
@@ -2800,7 +2805,7 @@ function positionEditor() {
   }
   editor.style.fontSize = n.fontSize * scale + "px";
   editor.style.borderWidth = n.kind === "label" ? scale + "px" : "0";
-  editor.style.borderRadius = n.kind === "label" ? 3 * scale + "px" : "0";
+  editor.style.borderRadius = n.kind === "label" ? 3 * scale + "px" : editor.classList.contains("mind-text-editor") ? "3px" : "0";
   editor.style.setProperty("--element-font", elementFont(n));
   editor.style.color = n.textColor;
   editor.style.textAlign =
@@ -2822,6 +2827,7 @@ function commitEdit() {
     n = elementByID(edit.id);
   editing = null;
   $("textEditor").hidden = true;
+  $("textEditor").classList.remove("mind-text-editor");
   if (!n) return null;
   readRichEditor(n);
   // An emptied connector label removes itself; the connector always remains.
