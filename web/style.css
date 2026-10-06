@@ -2169,14 +2169,10 @@ select:focus-visible {
 #highlightColors { margin-bottom:0; }
 #sidebarTrash #openSettings { justify-content:flex-start; }
 
-.presentation-button { display:flex; align-items:center; gap:6px; font-size:12px; padding:7px 10px; border:1px solid var(--line); border-radius:7px; }
-.presentation-button[hidden] { display:none; }
-.presentation-button[aria-pressed="true"] { color:#2474D0; background:#EAF2FC; border-color:#cbdff7; }
-.laser-dot { width:8px; height:8px; border-radius:50%; background:#e84545; }
 #laserPointer[aria-pressed="true"] { color:#c93838; background:#fff0f0; border-color:#f3cccc; }
 #laserCanvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:20; }
 #laserCanvas[hidden] { display:none; }
-.view-only #toolbar, .view-only #inspector, .view-only #notesPanel, .view-only .history-control { display:none !important; }
+.view-only #inspector, .view-only #notesPanel, .view-only .history-control { display:none !important; }
 
 /* No swatch in the right panel carries a border; the selected one shows only
    the accent ring. The panel is white, so only the white preset keeps an inset

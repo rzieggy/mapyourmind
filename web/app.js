@@ -594,6 +594,8 @@ function showPicker(x, y, source = null) {
 for (const b of $("toolbar").querySelectorAll("button[data-tool]"))
   b.onclick = () => {
     const t = b.dataset.tool;
+    if (t === "pointer") return toggleLaser();
+    if (viewOnly) setPointer(false);
     // Picking another tool closes the sticker dropdown so rail popovers never stack.
     if (!$("stickerDropdown").hidden) {
       $("stickerDropdown").hidden = true;
@@ -3596,8 +3598,7 @@ window.openInBrowser = async () => {
 };
 window.appCommand = async (command) => {
   try {
-    if (command === "view-only") { setViewOnly(!viewOnly); return; }
-    if (command === "pointer") { toggleLaser(); return; }
+    if (command === "view-only" || command === "pointer") { toggleLaser(); return; }
     if (command === "find") { openFind(); return; }
     if (command === "export-pdf") {
       if (isNotebook()) await exportNotePDF(); else exportBoardPDFDialog();
@@ -3769,7 +3770,14 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   const key = e.key.toLowerCase();
-  if (viewOnly && !["v", "h"].includes(key)) return;
+  // P toggles the Pointer when nothing is selected; any other tool key leaves it.
+  if (key === "p" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (viewOnly) setPointer(false);
+    else if (!selected.size && current && !isNotebook()) setPointer(true);
+    return;
+  }
+  if (viewOnly && !["v", "h", "r", "m", "t", "c"].includes(key)) return;
+  if (viewOnly) setPointer(false);
   if (
     {
       v: "select",

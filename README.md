@@ -32,7 +32,7 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 | Collapse / expand a branch | Select its parent, tap **Space** |
 | Pan / fit to screen | Space + drag / ⌘0 |
 | Align node text | **⌘⇧L / ⌘⇧E / ⌘⇧R**: left / center / right |
-| Present a Board | **View only** in the header; **Pointer** for a fading red trail |
+| Present a Board | **Pointer** in the left tool rail, or press **P** with nothing selected; **Esc** or **P** to stop |
 | Place a sticker | Pick a sticker, move the preview, click to place; **Esc** cancels |
 | Undo / redo | ⌘Z / ⌘⇧Z |
 | All shortcuts | **?** button at the bottom right |
@@ -41,10 +41,10 @@ Everything saves automatically. Mind-map roots keep their rounded shape; new chi
 without a border or background. Free text keeps an adjustable width and fits its height to the content. During a
 move, blue guides show nearby edge-to-edge distances in canvas pixels.
 
-View only keeps selection, pan, zoom, Find and branch collapse available. Collapse and Find expansions in this mode
-are temporary; **Back to editing** restores the saved branch state. Turn on **Pointer**, hold the mouse button and
-draw a trail or circle; it fades within 800ms and never becomes part of your diagram or export. Space-drag still pans.
-The editing tools return when you exit. Settings is at the bottom of the document sidebar, above Trash.
+The **Pointer** (left tool rail, or **P** with nothing selected) is for presenting: hold the mouse button and draw a
+red trail or circle; it fades within 800ms and never becomes part of your diagram or export. While it is on nothing can
+be selected or edited, but zoom, Space-drag pan, Find and folding branches still work; folds made then are temporary.
+**Esc** or **P** goes back to Select. Settings is at the bottom of the document sidebar, above Trash.
 The Command K action palette is disabled; Notes still uses Command K for links.
 
 Board PDFs use a high-resolution (3×) image on a page sized to your content. Choose the whole board or current

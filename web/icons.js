@@ -9,6 +9,7 @@ const iconPaths = {
   mind: '<rect x="3" y="9" width="6" height="6" rx="1"/><path d="M9 12h4M13 4v16m0-16h4m-4 8h4m-4 8h4"/><path d="M17 2h4v4h-4zm0 8h4v4h-4zm0 8h4v4h-4z"/>',
   text: '<path d="M4 5h16M12 5v15M8 20h8"/>',
   connector: '<path d="M4 19 20 4M12 4h8v8"/>',
+  pointer: '<circle cx="8" cy="16" r="2.5"/><path d="M10 14c3-3 4-8 10-9M12 18c3-1 5-4 6-7"/>',
   back: '<path d="m14 5-7 7 7 7"/>',
   undo: '<path d="m8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12"/>',
   redo: '<path d="m16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12"/>',

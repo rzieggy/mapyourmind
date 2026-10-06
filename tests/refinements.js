@@ -62,9 +62,9 @@ selected=new Set([restored.id]);inspect();fit();paint();$("toast").hidden=true;a
 // Presentations must never mutate the graph that native/browser saves serialize.
 const storedRoot=d().nodes.find(n=>n.id===root.id);storedRoot.collapsed=true;M.layout(d());changed();await window.flushSave();
 const original=M.clone(current.canvas), originalRevision=revision, originalHistory=history.past.length;
-startStickerPlacement("⭐");setViewOnly(true);
-assert(viewOnly&&!pendingSticker&&d()!==current.canvas&&$("viewOnlyToggle").textContent==="Back to editing","Entering View only cancels pending placement and uses a disposable graph");
-assert(getComputedStyle($("toolbar")).display==="none"&&getComputedStyle($("inspector")).display==="none"&&getComputedStyle(document.querySelector(".history-control")).display==="none"&&$("sidebarNewDocument").disabled,"View only hides editing controls and offers a visible exit");
+startStickerPlacement("⭐");setPointer(true);
+assert(viewOnly&&laserActive&&!pendingSticker&&d()!==current.canvas&&$("toolbar").querySelector('[data-tool="pointer"]').classList.contains("active"),"Turning on the Pointer cancels pending placement and uses a disposable graph");
+assert(getComputedStyle($("toolbar")).display!=="none"&&getComputedStyle($("inspector")).display==="none"&&getComputedStyle(document.querySelector(".history-control")).display==="none"&&$("sidebarNewDocument").disabled&&!$("viewOnlyToggle")&&!$("laserPointer"),"The Pointer hides editing controls, keeps the rail, and there is no View only button");
 const projectedRoot=d().nodes.find(n=>n.id===root.id);
 selected=new Set([root.id]);tapSpace();
 assert(!projectedRoot.collapsed&&M.same(current.canvas,original)&&revision===originalRevision&&history.past.length===originalHistory,"Space expands a branch temporarily without content revision or undo");
@@ -76,9 +76,9 @@ pointer("pointerdown",projectedRoot.x+40,projectedRoot.y+projectedRoot.h/2);poin
 canvas.dispatchEvent(new MouseEvent("dblclick",{bubbles:true,clientX:canvas.getBoundingClientRect().left+100,clientY:canvas.getBoundingClientRect().top+100}));
 assert(!drag&&!editing&&M.same(presentationBefore,d()),"Dragging and double-clicking cannot move, resize or edit presentation content");
 for(const command of ["undo","redo","duplicate","cut","paste","comment","bold","text-align-left","new","import","settings"])await window.appCommand(command);
-for(const value of ["Delete","Tab","Enter","r","t"])key(value);
+for(const value of ["Delete","Backspace","Tab","Enter"])key(value);
 key("g",{metaKey:true});key("1",{metaKey:true,code:"Digit1"});key("e",{metaKey:true,shiftKey:true});
-assert(M.same(presentationBefore,d())&&M.same(original,current.canvas)&&!editing&&!$("modal").open&&!notesNodeId&&history.past.length===originalHistory,"Native commands and editing shortcuts cannot bypass View only");
+assert(M.same(presentationBefore,d())&&M.same(original,current.canvas)&&!editing&&!$("modal").open&&!notesNodeId&&history.past.length===originalHistory,"Native commands and editing shortcuts cannot bypass the Pointer");
 const cr=canvas.getBoundingClientRect();canvas.dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true,clientX:cr.left+projectedRoot.x*view.z+view.x+30*view.z,clientY:cr.top+projectedRoot.y*view.z+view.y+20*view.z}));
 assert(!contextMenu.hidden&&!!contextMenu.querySelector('[data-context="collapse"]')&&!contextMenu.querySelector('[data-context="delete"],[data-context="comment"],[data-context="cut"]'),"Presentation right-click offers navigation without editing actions");closeContextMenu();canvas.focus();
 const panBefore={...view};key(" ");pointer("pointerdown",20,20);pointer("pointermove",100,60);pointer("pointerup",100,60);canvas.dispatchEvent(new KeyboardEvent("keyup",{key:" ",bubbles:true}));
@@ -88,7 +88,7 @@ await window.flushSave();const during=(await native("load")).state.documents.fin
 assert(M.same(during.canvas,original),"Native save during temporary expansion persists original collapse flags and geometry");
 assert(M.same(M.clone(state).documents.find(doc=>doc.id===current.id).canvas,original),"Shared browser persistence snapshot excludes the presentation graph");
 selected.clear();paint();await native("snapshot",{name:"refinements-view-only"});
-toggleLaser();assert(laserActive&&!$("laserCanvas").hidden,"Pointer is available only in View only");
+assert(laserActive&&!$("laserCanvas").hidden,"The Pointer draws on its own layer");
 const pointerGraph=M.clone(d()), pointerHistory=history.past.length;
 for(let i=0;i<=36;i++){const angle=i*Math.PI/18,x=350+80*Math.cos(angle),y=330+80*Math.sin(angle);pointer(i===0?"pointerdown":"pointermove",x,y);}
 pointer("pointerup",430,330);
@@ -106,13 +106,13 @@ const pointerNative=native;let pngData=[];native=async(action,data)=>{if(action=
 try{await exportPNG(false,"all");pointer("pointerdown",350,330);pointer("pointermove",400,360);pointer("pointerup",400,360);await exportPNG(false,"all");}finally{native=pointerNative;}
 assert(pngData.length===2&&pngData[0]===pngData[1]&&M.same(exportBefore,d())&&exportElements("all").nodes.length===withoutPointer.nodes.length,"PNG export excludes the laser layer and leaves the presented graph intact");
 let pdfData=[];native=async(action,data)=>{if(action==="boardPDF"){pdfData.push(data.data);return null;}return pointerNative(action,data);};
-try{await exportBoardPDF("all","white",true);toggleLaser();await exportBoardPDF("all","white",true);}finally{native=pointerNative;}
+try{await exportBoardPDF("all","white",true);clearLaser();await exportBoardPDF("all","white",true);}finally{native=pointerNative;}
 assert(pdfData.length===2&&pdfData[0]===pdfData[1]&&M.same(exportBefore,d()),"Board PDF raster excludes pointer trails and preserves the graph");
-toggleLaser();
-key("Escape");assert(!laserActive&&laserPoints.length===0&&viewOnly,"Escape clears and disables Pointer without leaving View only");
-setViewOnly(false);assert(!viewOnly&&M.same(original,d())&&history.past.length===originalHistory&&!$("sidebarNewDocument").disabled,"Back to editing restores the original graph, history and editing controls");
-assert(getComputedStyle($("toolbar")).display!=="none"&&$("laserPointer").hidden,"Editing rail returns and presentation pointer disappears on exit");
-setViewOnly(true);toggleCollapse(d().nodes.find(n=>n.id===root.id));toggleLaser();pointer("pointerdown",350,330);pointer("pointermove",400,360);
+pointer("pointerdown",350,330);pointer("pointermove",400,360);
+key("Escape");assert(!viewOnly&&!laserActive&&laserPoints.length===0&&tool==="select","Escape leaves the Pointer, clears its trail and returns to Select");
+assert(M.same(original,d())&&history.past.length===originalHistory&&!$("sidebarNewDocument").disabled,"Leaving the Pointer restores the original graph, history and editing controls");
+assert(!$("toolbar").querySelector('[data-tool="pointer"]').classList.contains("active")&&$("toolbar").querySelector('[data-tool="select"]').classList.contains("active"),"The rail shows Select again after the Pointer");
+setPointer(true);toggleCollapse(d().nodes.find(n=>n.id===root.id));pointer("pointerdown",350,330);pointer("pointermove",400,360);
 const boardId=current.id;newDoc();assert(current.id===boardId&&!$("modal").open,"Document creation is disabled during a presentation");
 showDocumentMenu(new MouseEvent("contextmenu"),current,false);assert(contextMenu.hidden,"View only blocks the document editing context menu");
 beginSidebarReorder(new PointerEvent("pointerdown",{button:0}),boardId);assert(!sidebarReorder,"The document sidebar cannot begin a reorder while presenting");
@@ -121,7 +121,7 @@ renderDocumentSidebar();
 const noteRow=$("sidebarDocumentList").querySelector(`[data-document-id="${note.id}"]`);noteRow.dispatchEvent(new PointerEvent("pointerdown",{button:0,bubbles:true}));
 for(let i=0;i<200&&current.id!==note.id;i++)await wait(10);
 assert(!viewOnly&&!laserActive&&!laserPoints.length&&M.same(state.documents.find(doc=>doc.id===boardId).canvas,original),"Switching document ends presentation and preserves the source board");
-setViewOnly(true);assert(!viewOnly&&$("viewOnlyToggle").hidden,"Notes never offers Board presentation mode");
+setPointer(true);key("p");assert(!viewOnly&&!laserActive,"Notes never offers the Pointer");
 openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening the board keeps its original collapse flags");
 {
   setViewOnly(false);openDoc(boardId);
@@ -164,6 +164,18 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   pointer("pointerdown",cx(far2),cy(far2));pointer("pointermove",cx(far2)+6,cy(far2)-90,{shiftKey:true});
   assert(cx(far2)===cx(b2)&&far2.y===fy-90,"Shift-dragging vertically lines up the other axis");
   pointer("pointerup",cx(far2),cy(far2));
+}
+{
+  setPointer(false);openDoc(boardId);selected.clear();const rail=t=>$("toolbar").querySelector(`[data-tool="${t}"]`);
+  key("p");assert(viewOnly&&laserActive&&rail("pointer").classList.contains("active"),"P turns on the Pointer when nothing is selected");
+  key("p");assert(!viewOnly&&!laserActive&&tool==="select","P again goes back to Select");
+  const someNode=d().nodes.find(n=>n.kind!=="image");selected=new Set([someNode.id]);key("p");
+  assert(!viewOnly,"P does nothing while a shape is selected");selected.clear();
+  rail("pointer").click();assert(viewOnly&&laserActive,"The Pointer button in the rail turns it on");
+  rail("pointer").click();assert(!viewOnly,"Clicking it again turns it off");
+  rail("pointer").click();rail("shape").click();assert(!viewOnly&&tool==="shape","Picking another rail tool leaves the Pointer");setTool("select");
+  key("p");key("t");assert(!viewOnly&&tool==="text","Another tool key leaves the Pointer and picks that tool");setTool("select");
+  await window.appCommand("pointer");assert(viewOnly&&laserActive,"The Pointer menu command turns it on");await window.appCommand("pointer");assert(!viewOnly,"and off");
 }
 assert(!errors.length,"No uncaught errors through editor and presentation interactions");
 return results;

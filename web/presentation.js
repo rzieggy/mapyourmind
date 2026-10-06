@@ -7,18 +7,18 @@ function navigateBranches(fn, relayout = true) {
   if (relayout) M.layoutChanged(d(), before);
   refreshFind(); render(); inspect();
 }
+// The Pointer tool (P) is the only way into this mode: nothing can be selected
+// or edited, the pointer leaves a fading trail, and Esc or P leaves it.
 function syncPresentationUI() {
   document.body.classList.toggle("view-only", viewOnly);
-  $("viewOnlyToggle").hidden = !current || isNotebook();
-  $("viewOnlyToggle").textContent = viewOnly ? "Back to editing" : "View only";
-  $("viewOnlyToggle").setAttribute("aria-pressed", String(viewOnly));
-  $("laserPointer").hidden = !viewOnly;
-  $("laserPointer").setAttribute("aria-pressed", String(laserActive));
+  for (const b of $("toolbar").querySelectorAll("button[data-tool]"))
+    b.classList.toggle("active", viewOnly ? b.dataset.tool === "pointer" : b.dataset.tool === tool);
+  $("toolbar").querySelector('[data-tool="pointer"]').setAttribute("aria-pressed", String(viewOnly));
   $("laserCanvas").hidden = !viewOnly || !laserActive;
   $("sidebarNewDocument").disabled = viewOnly || documentSwitchPending;
   $("openSettings").disabled = viewOnly;
   $("contextHint").textContent = viewOnly
-    ? laserActive ? "Drag to point · Trail fades · Space to pan" : "View only · Space to expand/collapse or drag to pan"
+    ? "Pointer · Hold and drag to draw · Space-drag to pan · Esc or P to stop"
     : "Select and move · Shift to multi-select · Space to pan";
   canvas.style.cursor = tool === "hand" || space ? "grab" : laserActive ? "none" : "default";
 }
@@ -40,8 +40,11 @@ function setViewOnly(enabled) {
   selected = new Set([...selected].filter(id => ids.has(id)));
   refreshFind(); syncPresentationUI(); inspect(); resize(); canvas.focus();
 }
-$("viewOnlyToggle").onclick = () => setViewOnly(!viewOnly);
-$("laserPointer").onclick = () => toggleLaser();
+function setPointer(enabled) {
+  setViewOnly(enabled);
+  laserActive = viewOnly;
+  clearLaser(); syncPresentationUI();
+}
 
 let laserActive = false, laserCursor = null, laserDrawing = false,
   laserPoints = [], laserFrame = 0, laserStroke = 0;
@@ -51,11 +54,7 @@ function clearLaser() {
   laserCursor = null; laserDrawing = false; laserPoints = [];
   laserContext.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
 }
-function toggleLaser() {
-  if (!viewOnly) return;
-  laserActive = !laserActive;
-  clearLaser(); syncPresentationUI(); canvas.focus();
-}
+function toggleLaser() { setPointer(!viewOnly); }
 function paintLaser(now = performance.now()) {
   laserFrame = 0;
   const ratio = devicePixelRatio || 1,
@@ -119,7 +118,7 @@ canvas.addEventListener("pointercancel", clearLaser);
 window.addEventListener("blur", clearLaser);
 document.addEventListener("visibilitychange", () => { if (document.hidden) clearLaser(); });
 document.addEventListener("keydown", e => {
-  if (!viewOnly || !laserActive || e.key !== "Escape" || e.isComposing || $("modal").open ||
+  if (!viewOnly || e.key !== "Escape" || e.isComposing || $("modal").open ||
       document.activeElement?.closest("input,textarea,select,[contenteditable]")) return;
-  e.preventDefault(); e.stopImmediatePropagation(); toggleLaser();
+  e.preventDefault(); e.stopImmediatePropagation(); setPointer(false);
 }, true);
