@@ -38,7 +38,7 @@ No account, no internet, no tracking. Your diagrams stay on your Mac.
 | All shortcuts | **?** button at the bottom right |
 
 Everything saves automatically. Mind-map roots keep their rounded shape; new children and descendants are text
-without a border or background. Free text keeps an adjustable width and fits its height to the content. During a
+without a border or background. Mind-map text and new free text behave as one text box: the width follows the text and wraps past about 45 characters, the height follows the lines, and dragging a side handle fixes the width from then on. During a
 move, blue guides show nearby edge-to-edge distances in canvas pixels.
 
 The **Pointer** (left tool rail, or **P** with nothing selected) is for presenting: hold the mouse button and draw a

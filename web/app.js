@@ -822,7 +822,7 @@ function shapeShortcut(value) {
 function autoSize(n) {
   if (["image", "sticker", "label"].includes(n.kind)) return;
   if (n.shape === "circle" && n.kind !== "text") return fitCircle(n);
-  if (n.fitWidth && n.kind === "mind" && !n.attachmentTo) {
+  if (n.fitWidth && (n.kind === "mind" || n.kind === "text") && !n.attachmentTo) {
     fitWidth(n);
     // Its placeholder shares the width, so it rewraps with it.
     for (const label of d()?.nodes.filter((a) => a.attachmentTo === n.id) || []) {
@@ -837,9 +837,10 @@ function autoSize(n) {
   );
   if (n.shape === "decision" && !M.isText(n)) n.h = Math.max(110, n.h * 1.35);
 }
-// A mind-map node made since 1.33 grows to its longest line, so short labels
-// stay on one line, and wraps only past the maximum. Resizing its width by hand
-// clears `fitWidth`, and from then on the width is the person's.
+// A mind-map node made since 1.33, and free text made since 2026-10-06, grows to its
+// longest line, so short labels stay on one line, and wraps only past the
+// maximum: one text-box behaviour for both. Resizing its width by hand clears
+// `fitWidth`, and from then on the width is the person's.
 function fitWidth(n) {
   const text = M.isText(n),
     pad = n.w - textWrapWidth(n),

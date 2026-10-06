@@ -21,15 +21,19 @@ const raster=document.createElement("canvas");raster.width=raster.height=300;con
 drawNode(rc,{...child,x:20,y:20,text:""},false);
 assert(!rc.getImageData(0,0,300,300).data.some((v,i)=>i%4===3&&v),"Text child paints no container, fill or border");
 const free=M.node("text",100,380,"process","One line");d().nodes.push(free);autoSize(free);
-assert(free.w===230&&free.h===28,"Free text has adjustable 230px width and content height");
+assert(free.fitWidth&&free.w>=60&&free.w<230&&textLines(ctx,free).length===1&&free.h===28,"New free text fits its width to the text, like a mind-map node, and its height to the content");
+{const legacy=M.node("text",100,380,"process","One line");delete legacy.fitWidth;legacy.w=230;autoSize(legacy);assert(legacy.w===230&&legacy.h===28,"Existing free text keeps its adjustable 230px width");}
 selected=new Set([free.id]);beginEdit(free);text("One line\nTwo lines\nThree lines");
 assert(free.h===Math.ceil(3*free.fontSize*1.15+6),"Explicit line breaks grow text height");
-text("Short");assert(free.h===28,"Deleting content shrinks text height");commitEdit();
-selected=new Set([free.id]);const handle=resizeHandles(free).find(h=>h.side==="r");free.text="A longer text which wraps when narrowed";
-pointer("pointerdown",handle.x,handle.y);pointer("pointermove",handle.x-120,handle.y);pointer("pointerup",handle.x-120,handle.y);
-assert(free.w===110&&free.h===Math.ceil(textLines(ctx,free).length*free.fontSize*1.15+6),"Width resize wraps text and keeps height automatic");
+text("A free text box that keeps going well past any sensible single line width, like a paragraph");
+assert(free.w===440&&textLines(ctx,free).length>1&&free.h===Math.ceil(textLines(ctx,free).length*free.fontSize*1.15+6),"Free text wraps at the same 440px maximum as mind-map text");
+text("Short");assert(free.h===28&&free.w<230,"Deleting content shrinks text height and width");commitEdit();
+selected=new Set([free.id]);const handle=resizeHandles(free).find(h=>h.side==="r"),fitted=free.w;free.text="A longer text which wraps when narrowed";
+pointer("pointerdown",handle.x,handle.y);pointer("pointermove",handle.x+50,handle.y);pointer("pointerup",handle.x+50,handle.y);
+assert(!free.fitWidth&&free.w===fitted+50&&free.h===Math.ceil(textLines(ctx,free).length*free.fontSize*1.15+6),"Width resize wraps text and keeps height automatic");
 const afterWidth=M.clone(free);undo();redo();const restored=d().nodes.find(n=>n.id===free.id);
 assert(restored.w===afterWidth.w&&restored.h===afterWidth.h,"Text resize undo/redo preserves computed geometry");
+selected=new Set([restored.id]);beginEdit(restored);text("Go");commitEdit();assert(!restored.fitWidth&&restored.w===afterWidth.w,"After a hand resize free text keeps its width while its text changes");
 const rectangle=M.node("flow",100,540,"process","Compact");d().nodes.push(rectangle);autoSize(rectangle);
 assert(rectangle.h===34&&textWrapWidth(rectangle)===rectangle.w-20,"Rectangle auto-sizing uses compact padding");
 const left={x:0,y:0,w:100,h:80}, moving={x:140,y:0,w:100,h:80}, right={x:280,y:0,w:100,h:80};

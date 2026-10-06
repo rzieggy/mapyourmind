@@ -154,7 +154,7 @@
       parent: null,
       order: 0,
       group: null,
-      ...(kind === "mind" ? { fitWidth: true } : null),
+      ...(kind === "mind" || kind === "text" ? { fitWidth: true } : null),
       ...globalStyle(kind),
     };
   }

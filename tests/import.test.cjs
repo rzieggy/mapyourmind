@@ -68,6 +68,6 @@ test('a new placeholder dresses like its owner, keeps its yellow fill and fits i
 });
 test('new mind-map nodes fit their width; fitWidth must be a boolean',()=>{
   const d=M.blank(),root=M.node('mind',0,0);d.nodes.push(root);const child=M.extend(d,root.id,true);
-  assert.equal(root.fitWidth,true);assert.equal(child.fitWidth,true);assert.equal(M.node('flow',0,0).fitWidth,undefined);
+  assert.equal(root.fitWidth,true);assert.equal(child.fitWidth,true);assert.equal(M.node('flow',0,0).fitWidth,undefined);assert.equal(M.node('text',0,0).fitWidth,true);
   child.fitWidth='yes';assert.equal(M.validate(d),false);
 });
