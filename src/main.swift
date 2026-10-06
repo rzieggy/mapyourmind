@@ -346,7 +346,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var browserFinish: (() -> Void)?
     // `--ui-test --browser-test` enters browser mode on a temporary library without
     // opening a browser, so a test can drive the tab itself.
-    let browserTesting = CommandLine.arguments.contains("--browser-test")
+    // It prints the store folder, the server address and, after Back to app, the
+    // editor's documents, so tests/browser-mode.mjs can check both sides. With
+    // `--fail-entry-save` every app save fails, so the save that runs before
+    // entering browser mode fails; the app prints what it shows and exits.
+    let browserTesting = CommandLine.arguments.contains("--browser-test") && CommandLine.arguments.contains("--ui-test")
+    let failEntrySave = CommandLine.arguments.contains("--fail-entry-save") && CommandLine.arguments.contains("--browser-test") && CommandLine.arguments.contains("--ui-test")
     func applicationDidFinishLaunching(_ notification: Notification) {
         do { store = try LocalStore(directory: CommandLine.arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-ui-" + UUID().uuidString) : nil) } catch { let alert = NSAlert(); alert.messageText = "Local storage could not be opened"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return }
         if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "mapyourmind was started from Terminal. Close the mapyourmind tab, press Control-C in that Terminal window, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
@@ -373,9 +378,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if !uiTest { NSApp.activate(ignoringOtherApps: true) }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if browserTesting, testsStarted, web.url?.lastPathComponent == "index.html" { reportBrowserTestEditor(); return }
         guard CommandLine.arguments.contains("--ui-test"), web.url?.lastPathComponent == "index.html", !testsStarted else { return }
         testsStarted = true
-        if browserTesting { startBrowserTestSignals(); web.evaluateJavaScript("window.appCommand('browser')", completionHandler: nil); return }
+        if failEntrySave { runFailEntrySaveTest(); return }
+        if browserTesting { print("BROWSER TEST STORE: \(store.directory.path)"); fflush(stdout); startBrowserTestSignals(); web.evaluateJavaScript("window.appCommand('browser')", completionHandler: nil); return }
         let testURL = Bundle.main.resourceURL!.appendingPathComponent(CommandLine.arguments.contains("--refinements-test") ? "refinements.js" : CommandLine.arguments.contains("--program-a-test") ? "program-a.js" : CommandLine.arguments.contains("--program-test") ? "program.js" : CommandLine.arguments.contains("--schema-test") ? "schema3.js" : CommandLine.arguments.contains("--perf-test") ? "perf.js" : CommandLine.arguments.contains("--notebook-test") ? "notebook.js" : CommandLine.arguments.contains("--navigation-test") ? "navigation.js" : CommandLine.arguments.contains("--feedback-test") ? "feedback.js" : "integration.js")
         guard let source = try? String(contentsOf: testURL, encoding: .utf8) else { print("FAIL missing integration test"); exit(1) }
         web.callAsyncJavaScript(source, arguments: [:], in: nil, in: .page) { result in
@@ -433,6 +440,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             reply(id, result: true)
             let alert = NSAlert(); alert.messageText = "Couldn't open in the browser"
             alert.informativeText = "Your latest change hasn't saved yet, so mapyourmind stays here and nothing is lost.\n\n" + (b["message"] as? String ?? "")
+            // The test window is invisible, so the test reads the alert's text instead.
+            if failEntrySave { print("BROWSER TEST ALERT: \(alert.messageText) | \(alert.informativeText.replacingOccurrences(of: "\n", with: " "))"); fflush(stdout); return }
             alert.addButton(withTitle: "Try again"); alert.addButton(withTitle: "Stay here")
             alert.beginSheetModal(for: window) { response in if response == .alertFirstButtonReturn { self.web.evaluateJavaScript("window.openInBrowser()", completionHandler: nil) } }
         case "browserOpenTab": openBrowserTab()
@@ -517,7 +526,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         case "localFonts": reply(id,result:localFontFaces())
         case "clock": reply(id, result: monotonicClock())
         case "load": queue.async { do { var result = try self.store.load(); result["clock"] = monotonicClock(); self.reply(id, result: result) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }
-        case "save": guard let state = b["state"] else { return }; queue.async { do { try self.store.save(state); self.reply(id, result: true) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }
+        case "save": guard let state = b["state"] else { return }; if failEntrySave { reply(id, error: "Test: the save was made to fail."); return }; queue.async { do { try self.store.save(state); self.reply(id, result: true) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }
         case "clipboardWrite":
             let board = pasteboard; board.clearContents()
             let text = b["text"] as? String ?? ""; var ok = board.setString(text, forType: .string)
@@ -568,6 +577,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                 alert.beginSheetModal(for: self.window, completionHandler: nil); return
             }
             self.browserPhase = "live"; self.pushBrowserStatus(); self.openBrowserTab()
+            if self.browserTesting { print("BROWSER TEST URL: \(server.url.absoluteString)"); fflush(stdout) }
         }
     }
     // Test hooks for --browser-test, so a script can use the same paths as the menus:
@@ -580,6 +590,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             // Run it as a run-loop block, as a menu event would: Quit waits in a nested run
             // loop, and inside a main-queue block the main queue could not drain meanwhile.
             source.setEventHandler { RunLoop.main.perform(action) }; source.resume(); browserTestSignals.append(source)
+        }
+    }
+    // After Back to app: wait for the editor to load the store, then print what it shows.
+    func reportBrowserTestEditor() {
+        let script = "for (let i = 0; i < 200 && !loaded; i++) await new Promise(r => setTimeout(r, 25)); return JSON.stringify({ loaded, titles: state.documents.map(d => d.title), current: current ? current.title : null, nodes: current ? current.canvas.nodes.map(n => n.text) : [] });"
+        web.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { result in
+            if case .success(let value) = result { print("BROWSER TEST EDITOR: \(value)") } else { print("BROWSER TEST EDITOR: {\"error\":true}") }
+            fflush(stdout)
+        }
+    }
+    // `--fail-entry-save`: make a change, try File › Open in Browser while every save
+    // fails, then print what the window shows and whether a server started.
+    func runFailEntrySaveTest() {
+        let script = """
+        for (let i = 0; i < 200 && !loaded; i++) await new Promise(r => setTimeout(r, 25));
+        $("sidebarNewDocument").click();
+        for (let i = 0; i < 200 && !$("nameInput"); i++) await new Promise(r => setTimeout(r, 25));
+        $("nameInput").value = "Entry save"; $("nameSubmit").click();
+        for (let i = 0; i < 200 && !current; i++) await new Promise(r => setTimeout(r, 25));
+        mutate(() => { current.canvas.nodes.push(M.node("flow", 0, 0, "process", "Unsaved before entry")); });
+        const waiting = revision !== savedRevision;
+        await window.appCommand("browser");
+        await new Promise(r => setTimeout(r, 300));
+        const before = revision;
+        mutate(() => { current.canvas.nodes.push(M.node("flow", 40, 40, "process", "After the failed entry")); });
+        return JSON.stringify({ waiting, page: location.pathname.split("/").pop(), saveStatus: $("saveStatus").textContent, toast: $("toast").hidden ? "" : $("toast").textContent, modal: $("modal").open, viewOnly, edited: revision === before + 1 && current.canvas.nodes.some(n => n.text === "After the failed entry") });
+        """
+        web.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { result in
+            switch result {
+            case .success(let value): print("BROWSER TEST FAIL-ENTRY: \(value)")
+            case .failure(let error): print("BROWSER TEST FAIL-ENTRY: {\"error\":\(String(reflecting: error.localizedDescription))}")
+            }
+            print("BROWSER TEST SERVER: \(self.browser == nil ? "none" : "started")"); fflush(stdout)
+            try? FileManager.default.removeItem(at: self.store.directory)
+            self.pasteboard.releaseGlobally(); exit(0)
         }
     }
     func menuCommandNamed(_ command: String) { let item = NSMenuItem(); item.representedObject = command; menuCommand(item) }
