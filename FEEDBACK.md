@@ -6,12 +6,13 @@ Zieggy's feedback from real use, waiting for a fix. Newest at the bottom. Move a
 
 | # | Date | Area | Feedback | Expected | Notes |
 | --- | --- | --- | --- | --- | --- |
-| F9 | 2026-10-05 | Move / alignment | Zieggy wants Shift while dragging a shape to help line it up so its connectors come out straight. Today Shift does nothing during a move; only a 6px auto-snap to any shape edge/centre exists (flowchart only, ⌘ disables it). | Proposal (awaiting Zieggy's OK): **Shift + drag** (1) locks movement to the dominant axis (the common convention in design tools) and (2) snaps the other axis to the centre line of shapes **connected to the dragged shape** within ~40 screen px, so those connectors become straight; a blue guide shows the target. With no connected shape in range it is a plain axis lock. Flowchart shapes only (mind-map nodes are placed by layout). | Move drag in `web/app.js` (`drag.type === "move"`, snapping block with `threshold = 6 / view.z`). Read `e.shiftKey` there (and on keydown/keyup mid-drag so pressing Shift during the drag applies at once). Connected shapes: `d().edges` where from/to is in `drag.ids`, other end outside. Multi-selection: use the selection bounds' centre against the nearest connected outside shape. Keep ⌘ as "no snapping" and Option-drag duplicate. Guides are UI only. Tests: lock both directions, snap straight to a connected shape, no snap beyond range, plain lock with no connections, Shift pressed mid-drag, undo is one step. |
 
 ## Done
 
 | # | Fixed in | Note |
 | --- | --- | --- |
+| F9 | 2026-10-06 | Shift + drag on flowchart shapes locks the move to its main axis and lines the other axis up with a connected shape within 40 screen px (dashed guide), so that connector is straight; otherwise a plain axis lock. Pressing/releasing Shift mid-drag applies at once. |
+| F10 | 2026-10-06 | The app version ("mapyourmind 1.x.y") shows at the bottom left of the sidebar, under Trash, in the app and in browser mode. |
 | F5 | Batch B (2026-10-05) | New mind-map nodes carry `fitWidth: true` and fit their width to the longest line (text 60–320px, roots 120–360px); a hand resize of the width clears the flag. Existing nodes are unchanged. |
 | F6 | Batch B (2026-10-05) | `layout` tracks up/down extents per subtree; a placeholder only adds to `up`, and an only child always sits on its parent's line. On a copy of the real library, documents without placeholders lay out identically (0 of 766 mind nodes moved). |
 | F8 | Batch B (2026-10-05) | `M.placeholder` copies sloppiness, stroke width/colour/style, font family and size from its owner, keeps the yellow fill, and its height fits its text. |

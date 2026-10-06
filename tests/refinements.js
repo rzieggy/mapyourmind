@@ -140,5 +140,30 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   const kept=fc.w;selected=new Set([fc.id]);beginEdit(fc);text("Go");commitEdit();
   assert(!fc.fitWidth&&fc.w===kept,"Resizing a mind-map node by hand keeps its width from then on");
 }
+{
+  setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);
+  const a=M.node("flow",4000,4000,"process","Left");const b=M.node("flow",4300,4025,"process","Right");const far=M.node("flow",4000,4600,"process","Below");
+  d().nodes.push(a,b,far);M.connect(d(),a.id,b.id);M.connect(d(),b.id,far.id);
+  const cy=n=>n.y+n.h/2,cx=n=>n.x+n.w/2,before=M.clone(d());
+  selected=new Set([b.id]);render();
+  pointer("pointerdown",cx(b),cy(b));pointer("pointermove",cx(b)+60,cy(b)+4,{shiftKey:true});
+  assert(cy(b)===cy(a)&&b.x===4360&&guides.some(g=>g.axis==="y"&&g.value===cy(a)),"Shift-dragging sideways lines a shape up with its connected neighbour, so the connector is straight");
+  pointer("pointermove",cx(b)+60,cy(b)+30,{shiftKey:false});
+  assert(cy(b)!==cy(a),"Releasing Shift frees the move again");
+  window.dispatchEvent(new KeyboardEvent("keydown",{key:"Shift",bubbles:true}));
+  assert(cy(b)===cy(a),"Pressing Shift mid-drag straightens at once");
+  window.dispatchEvent(new KeyboardEvent("keyup",{key:"Shift",bubbles:true}));
+  pointer("pointerup",cx(b),cy(b));undo();
+  assert(M.same(d(),before),"One Undo reverses a straightened move");
+  const live=id=>d().nodes.find(n=>n.id===id);let b2=live(b.id),far2=live(far.id);
+  b2.y=4200;selected=new Set([b2.id]);render();const y0=b2.y;
+  pointer("pointerdown",cx(b2),cy(b2));pointer("pointermove",cx(b2)+80,cy(b2)+12,{shiftKey:true});
+  assert(b2.y===y0&&b2.x===4380,"Out of reach, Shift is a plain horizontal lock");
+  pointer("pointerup",cx(b2),cy(b2));
+  far2.x=b2.x+20;selected=new Set([far2.id]);render();const fy=far2.y;
+  pointer("pointerdown",cx(far2),cy(far2));pointer("pointermove",cx(far2)+6,cy(far2)-90,{shiftKey:true});
+  assert(cx(far2)===cx(b2)&&far2.y===fy-90,"Shift-dragging vertically lines up the other axis");
+  pointer("pointerup",cx(far2),cy(far2));
+}
 assert(!errors.length,"No uncaught errors through editor and presentation interactions");
 return results;

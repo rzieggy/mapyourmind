@@ -253,3 +253,9 @@ $("sidebarResizer").onkeydown = (e) => {
   changed();
 };
 addEventListener("resize", applySidebarWidth);
+
+// The installed version sits under Trash, so it is clear which build is open.
+{
+  const version = window.appVersion || document.querySelector('meta[name="mym-version"]')?.content || "";
+  if (/^[0-9.]+$/.test(version)) { $("appVersion").textContent = "mapyourmind " + version; $("appVersion").hidden = false; }
+}

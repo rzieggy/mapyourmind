@@ -351,6 +351,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         do { store = try LocalStore(directory: CommandLine.arguments.contains("--ui-test") ? FileManager.default.temporaryDirectory.appendingPathComponent("flowchart-ui-" + UUID().uuidString) : nil) } catch { let alert = NSAlert(); alert.messageText = "Local storage could not be opened"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return }
         if !CommandLine.arguments.contains("--ui-test"), !store.lock() { let alert = NSAlert(); alert.messageText = "mapyourmind is open in the browser"; alert.informativeText = "mapyourmind was started from Terminal. Close the mapyourmind tab, press Control-C in that Terminal window, then open the app again."; alert.runModal(); terminating = true; NSApp.terminate(nil); return }
         let controller = WKUserContentController(); controller.add(self, name: "native")
+        let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "").filter { $0.isNumber || $0 == "." }
+        controller.addUserScript(WKUserScript(source: "window.appVersion = \"\(version)\";", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let configuration = WKWebViewConfiguration(); configuration.userContentController = controller; configuration.websiteDataStore = .nonPersistent()
         web = WKWebView(frame: .zero, configuration: configuration); web.navigationDelegate = self; web.uiDelegate = self
         window = (uiTest ? UnconstrainedWindow.self : NSWindow.self).init(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 840), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)

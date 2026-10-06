@@ -1,4 +1,5 @@
 import Cocoa
+private let servedVersion = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "").filter { $0.isNumber || $0 == "." }
 import Network
 
 // Browser mode serves the same web page on 127.0.0.1 so it can be shared as a
@@ -115,7 +116,7 @@ final class BrowserServer {
     func index(_ connection: NWConnection) {
         guard let page = try? String(contentsOf: root.appendingPathComponent("index.html"), encoding: .utf8) else { send(connection, 500, text: "Missing page"); return }
         let rewritten = page.replacingOccurrences(of: "connect-src 'none'", with: "connect-src 'self'")
-            .replacingOccurrences(of: "</head>", with: "<meta name=\"mym-token\" content=\"\(token)\" />\n    <script src=\"browser-bridge.js\"></script>\n  </head>")
+            .replacingOccurrences(of: "</head>", with: "<meta name=\"mym-token\" content=\"\(token)\" />\n    <meta name=\"mym-version\" content=\"\(servedVersion)\" />\n    <script src=\"browser-bridge.js\"></script>\n  </head>")
         send(connection, 200, type: "text/html; charset=utf-8", body: Data(rewritten.utf8))
     }
 

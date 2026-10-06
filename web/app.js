@@ -2344,6 +2344,35 @@ canvas.addEventListener("pointerdown", (e) => {
     render();
   }
 });
+// Shift while moving flowchart shapes keeps the move on its main axis and
+// lines the other axis up with a shape connected to the moving ones, so that
+// connector comes out straight. Without a connected shape in reach it is a
+// plain axis lock.
+function straightenMove(dx, dy) {
+  const horizontal = Math.abs(dx) >= Math.abs(dy),
+    reach = 40 / view.z,
+    byId = new Map(d().nodes.map((a) => [a.id, a]));
+  let best = null;
+  for (const edge of d().edges) {
+    const inside = drag.ids.has(edge.from) ? edge.from : drag.ids.has(edge.to) ? edge.to : null,
+      outside = inside === edge.from ? edge.to : edge.from;
+    if (!inside || drag.ids.has(outside)) continue;
+    const mover = byId.get(inside), other = byId.get(outside), from = drag.positions.get(inside);
+    if (!mover || !other || !from || !visibleCanvas().nodes.includes(other)) continue;
+    const target = horizontal ? other.y + other.h / 2 : other.x + other.w / 2,
+      delta = horizontal ? target - (from.y + mover.h / 2) : target - (from.x + mover.w / 2);
+    if (Math.abs(delta) <= reach && (!best || Math.abs(delta) < Math.abs(best.delta))) best = { delta, target };
+  }
+  if (best) guides = [{ axis: horizontal ? "y" : "x", value: best.target }];
+  return horizontal ? [dx, best ? best.delta : 0] : [best ? best.delta : 0, dy];
+}
+// Pressing or releasing Shift mid-move applies at once, without waiting for
+// the pointer to move.
+for (const type of ["keydown", "keyup"])
+  window.addEventListener(type, (e) => {
+    if (e.key !== "Shift" || drag?.type !== "move" || !drag.last) return;
+    canvas.dispatchEvent(new PointerEvent("pointermove", { ...drag.last, shiftKey: type === "keydown", pointerId: 1, bubbles: true, cancelable: true }));
+  });
 canvas.addEventListener("pointermove", (e) => {
   const p = point(e);
   if (viewOnly && !drag) return;
@@ -2433,7 +2462,10 @@ canvas.addEventListener("pointermove", (e) => {
   distanceGuides = [];
     const n = d().nodes.find((n) => n.id === drag.id),
       original = drag.positions.get(n.id);
-    if (n.kind !== "mind" && !e.metaKey) {
+    drag.last = { clientX: e.clientX, clientY: e.clientY, metaKey: e.metaKey, shiftKey: e.shiftKey };
+    if (n.kind !== "mind" && e.shiftKey) {
+      [dx, dy] = straightenMove(dx, dy);
+    } else if (n.kind !== "mind" && !e.metaKey) {
       const threshold = 6 / view.z,
         others = visibleCanvas().nodes.filter(
           (a) => !drag.ids.has(a.id),

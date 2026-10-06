@@ -351,5 +351,9 @@ let rejectedPDF=false;try{await native('boardPDF',{data:'bad image',width:100,he
 assert(rejectedPDF,'Native PDF bridge rejects invalid raster data');
 await native('log',{message:'Phase 4a PDF fixtures: '+boardWhitePDF.path+' | '+boardTransparentPDF.path+' | '+selectionPDF.path+' | '+connectorPDF.path});
 assert(!errors.length,'Phase 4a has no uncaught browser errors');
+{
+  const label=$('appVersion'),box=label.getBoundingClientRect(),trash=$('sidebarTrashToggle').getBoundingClientRect();
+  assert(!label.hidden&&/^mapyourmind \d+\.\d+\.\d+$/.test(label.textContent)&&box.top>=trash.bottom&&box.left<200,'The app version shows at the bottom left of the sidebar, under Trash');
+}
 
 return results;
