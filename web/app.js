@@ -444,6 +444,7 @@ function toggleDocMenu() {
     (notebook ? "" : item("import", "import", "Import mind map…"))) +
     item("export", "export", notebook ? "Export PDF…" : "Export PNG…") +
     (notebook ? "" : item("export-pdf", "export", "Export PDF…")) +
+    (window.mapyourmindBrowser ? "" : item("browser", "globe", "Open in browser")) +
     '<div class="menu-separator"></div>' +
     (viewOnly ? "" : item("trash", "trash", "Move to Trash", ' class="danger"')) +
     '<div class="menu-separator"></div>' +
@@ -462,6 +463,7 @@ function toggleDocMenu() {
         else if (action === "import") await chooseMindmapImport();
         else if (action === "export") exportDialog();
         else if (action === "export-pdf") exportBoardPDFDialog();
+        else if (action === "browser") await window.openInBrowser();
         else await docAction(action, current.id);
       } catch (error) {
         toast(error.message);
@@ -3522,6 +3524,13 @@ function exportDialog() {
   };
 }
 $("exportOpen").onclick = exportDialog;
+// Browser mode is only reachable from the menu bar otherwise. The tab itself
+// has Back to app, so it never shows this button.
+function syncBrowserEntry() {
+  $("openInBrowserButton").hidden = !!window.mapyourmindBrowser;
+}
+syncBrowserEntry();
+$("openInBrowserButton").onclick = () => window.openInBrowser();
 function help() {
   showModal(
     `<h2>Make room for shortcuts.</h2><p>Select a node to grow your diagram.</p>${[

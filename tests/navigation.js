@@ -193,7 +193,7 @@ $('sidebarTrashToggle').click();
 $('docTitle').click();
 await wait(300);
 const docMenuLabels=[...$('docMenu').querySelectorAll('[data-doc-action]')].map(b=>b.dataset.docAction).join();
-assert(!$('docMenu').hidden&&$('docTitle').getAttribute('aria-expanded')==='true'&&docMenuLabels==='rename,duplicate,import,export,export-pdf,trash','A click on the title opens the document menu with every document action');
+assert(!$('docMenu').hidden&&$('docTitle').getAttribute('aria-expanded')==='true'&&docMenuLabels==='rename,duplicate,import,export,export-pdf,browser,trash','A click on the title opens the document menu with every document action');
 assert($('docMenu').querySelector('.menu-info').textContent.includes(d().nodes.length+' element'),'The document menu shows the element count');
 await native('snapshot', { name: 'docmenu' });
 $('docMenu').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
@@ -354,6 +354,25 @@ assert(!errors.length,'Phase 4a has no uncaught browser errors');
 {
   const label=$('appVersion'),box=label.getBoundingClientRect(),trash=$('sidebarTrashToggle').getBoundingClientRect();
   assert(!label.hidden&&/^mapyourmind \d+\.\d+\.\d+$/.test(label.textContent)&&box.top>=trash.bottom&&box.left<200,'The app version shows at the bottom left of the sidebar, under Trash');
+}
+
+{
+  if(isNotebook())openDoc(state.documents.find(doc=>doc.mode!=="notes"&&!doc.deleted)?.id);
+  const button=$('openInBrowserButton'),box=button.getBoundingClientRect(),header=document.querySelector('.editor-header').getBoundingClientRect();
+  assert(!button.hidden&&box.width>0&&button.textContent.trim()==='Open in browser'&&button.querySelector('svg'),'An Open in browser button with an icon shows in the editor header');
+  assert(header.right-box.right<40&&box.top>=header.top&&box.bottom<=header.bottom,'The Open in browser button sits at the top right of the header');
+  await wait(60);await native("snapshot",{name:"header-open-in-browser"});
+  const realNative=native;let calls=[];native=async(action,data)=>{calls.push(action);if(action==="openInBrowser")return null;return realNative(action,data);};
+  try{button.click();for(let i=0;i<100&&!calls.includes("openInBrowser");i++)await wait(10);}finally{native=realNative;}
+  assert(calls.includes("openInBrowser"),'Clicking Open in browser saves and asks the app to open browser mode');
+  calls=[];native=async(action,data)=>{calls.push(action);if(action==="openInBrowser")return null;return realNative(action,data);};
+  try{closeDocMenu();toggleDocMenu();const item=$('docMenu').querySelector('[data-doc-action="browser"]');assert(item&&item.textContent.trim()==='Open in browser','The document menu offers Open in browser');item.click();for(let i=0;i<100&&!calls.includes("openInBrowser");i++)await wait(10);}finally{native=realNative;}
+  assert(calls.includes("openInBrowser"),'The document menu entry opens browser mode');
+  window.mapyourmindBrowser=true;
+  try{syncBrowserEntry();assert(button.hidden&&button.getBoundingClientRect().width===0,'Inside browser mode the header has no Open in browser button');
+    closeDocMenu();toggleDocMenu();assert(!$('docMenu').hidden&&!$('docMenu').querySelector('[data-doc-action="browser"]'),'Inside browser mode the document menu has no Open in browser');closeDocMenu();}
+  finally{delete window.mapyourmindBrowser;syncBrowserEntry();}
+  assert(!button.hidden,'Leaving the browser flag restores the button');
 }
 
 return results;

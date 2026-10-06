@@ -56,7 +56,7 @@ its match. Comments are excluded.
 
 Some meeting apps only let you share a browser tab, not an app window. Browser mode opens mapyourmind in a browser tab so you can share just that tab. It shows the same documents, and changes save to your Mac as usual.
 
-**To start:** choose **File → Open in Browser**. mapyourmind saves your work and opens a tab. Share that tab in your meeting.
+**To start:** click **Open in browser** at the top right of the editor (also in the document title ▾ menu, or **File → Open in Browser**). mapyourmind saves your work and opens a tab. Share that tab in your meeting.
 
 While the tab is open, the app window shows a short status screen instead of your documents. That way only one place edits at a time.
 
