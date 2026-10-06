@@ -636,7 +636,7 @@ function drawReparentPreview() {
   if (!moving || !parent) return;
   const vertical = M.treeDirection(d(), parent) === "vertical";
   const start = anchor(parent, vertical ? "bottom" : "right");
-  const ghost = { ...moving, x: vertical ? moving.x : parent.x + parent.w + 92, y: vertical ? parent.y + parent.h + 80 : moving.y };
+  const ghost = { ...moving, x: vertical ? moving.x : parent.x + parent.w + M.mainGap.horizontal, y: vertical ? parent.y + parent.h + M.mainGap.vertical : moving.y };
   const end = anchor(ghost, vertical ? "top" : "left");
   ctx.save();
   ctx.strokeStyle = "#78618f";

@@ -259,6 +259,8 @@
     const root = node && treeRoot(d, node);
     return root?.direction || d.direction || "horizontal";
   }
+  // The tree connector's length: from a parent's edge to its children's edge.
+  const mainGap = { horizontal: 92, vertical: 80 };
   function layout(d, rootIDs = null) {
     const childMap = new Map();
     const topSpace = new Map(d.nodes.filter(n => n.attachmentTo).map(n => [n.attachmentTo, n.h + 4]));
@@ -300,36 +302,30 @@
       bare.set(n.id, Math.max(half, reachUp));
       down.set(n.id, Math.max(half, reachDown));
     }
-    let columns = [];
-    function place(n, depth = 0) {
+    // No columns: each child starts a fixed gap after its own parent (below it
+    // in a vertical tree), so every tree connector has the same length and a
+    // short branch stays as compact as its text. In a vertical tree siblings
+    // share one row, below room for the tallest of their placeholders.
+    function place(n) {
       const cs = n.collapsed ? [] : childMap.get(n.id) || [];
-      const centre = vertical ? n.x + n.w / 2 : n.y + n.h / 2;
+      const centre = vertical ? n.x + n.w / 2 : n.y + n.h / 2,
+        row = vertical ? n.y + n.h + mainGap.vertical + Math.max(0, ...cs.map((c) => topSpace.get(c.id) || 0)) : 0;
       cs.forEach((c, i) => {
         const at = centre + offsets.get(n.id)[i];
         if (vertical) {
           c.x = at - c.w / 2;
-          c.y = columns[depth + 1];
+          c.y = row;
         } else {
-          c.x = columns[depth + 1];
+          c.x = n.x + n.w + mainGap.horizontal;
           c.y = at - c.h / 2;
         }
-        place(c, depth + 1);
+        place(c);
       });
     }
     for (const n of d.nodes.filter((n) => n.kind === "mind" && !n.parent && (!rootIDs || rootIDs.has(n.id)))) {
       vertical = treeDirection(d, n) === "vertical";
       crossSize = vertical ? "w" : "h";
       measure(n);
-      const sizes = [];
-      function levels(node, depth) {
-        sizes[depth] = Math.max(sizes[depth] || 0, vertical ? node.h + (topSpace.get(node.id) || 0) : node.w);
-        if (!node.collapsed)
-          for (const c of childMap.get(node.id) || []) levels(c, depth + 1);
-      }
-      levels(n, 0);
-      columns = [vertical ? n.y : n.x];
-      for (let i = 0; i < sizes.length; i++)
-        columns[i + 1] = columns[i] + sizes[i] + (vertical ? 80 : 92);
       place(n);
     }
     syncAttachments(d);
@@ -1003,6 +999,7 @@
     isText,
     subtree,
     layout,
+    mainGap,
     connect,
     extend,
     normalizeOrder,

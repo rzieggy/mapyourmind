@@ -127,9 +127,9 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   setViewOnly(false);openDoc(boardId);
   const fr=M.node("mind",3000,3000,"process","Fit");d().nodes.push(fr);autoSize(fr);
   const fc=M.extend(d(),fr.id,true);selected=new Set([fc.id]);beginEdit(fc,{newElement:true});text("User have AFIN and can login");
-  assert(fc.fitWidth&&fc.w>180&&fc.w<320&&textLines(ctx,fc).length===1,"A new mind-map node grows to keep a short label on one line");
+  assert(fc.fitWidth&&fc.w>180&&fc.w<440&&textLines(ctx,fc).length===1,"A new mind-map node grows to keep a short label on one line");
   text("A much longer mind-map label that keeps going well past any sensible single line width");
-  assert(fc.w===320&&textLines(ctx,fc).length>1,"Past the maximum width a mind-map node wraps");
+  assert(fc.w===440&&textLines(ctx,fc).length>1,"Past the maximum width a mind-map node wraps");
   text("Go");assert(fc.w===60,"Short mind-map text shrinks to the minimum width");commitEdit();
   const ph=M.placeholder(d(),fc.id);autoSize(ph);M.layout(d());
   assert(Math.abs(fc.y+fc.h/2-(fr.y+fr.h/2))<0.5,"A placeholder leaves an only child on its parent's line");
@@ -139,6 +139,25 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   pointer("pointerdown",rh.x,rh.y);pointer("pointermove",rh.x+80,rh.y);pointer("pointerup",rh.x+80,rh.y);
   const kept=fc.w;selected=new Set([fc.id]);beginEdit(fc);text("Go");commitEdit();
   assert(!fc.fitWidth&&fc.w===kept,"Resizing a mind-map node by hand keeps its width from then on");
+}
+{
+  setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();
+  const r=M.node("mind",6000,6000,"process","Root");d().nodes.push(r);autoSize(r);
+  const long=M.extend(d(),r.id,true);long.text="A long sibling label that keeps going for a while";autoSize(long);
+  const short=M.extend(d(),long.id,false);short.text="Hi";autoSize(short);
+  const lc=M.extend(d(),long.id,true);lc.text="Leaf";autoSize(lc);
+  const sc=M.extend(d(),short.id,true);sc.text="Leaf";autoSize(sc);M.layout(d());
+  assert(sc.x<lc.x&&sc.x-(short.x+short.w)===92&&lc.x-(long.x+long.w)===92,"Mind-map children start one fixed gap after their own parent, so short branches stay compact");
+  drag={type:"move",id:lc.id};hover={id:short.id,mode:"parent"};let ghost=null;const fillRect=ctx.fillRect;
+  ctx.fillRect=function(x,y,w,h){ghost={x,y,w,h};};try{drawReparentPreview();}finally{ctx.fillRect=fillRect;drag=null;hover=null;}
+  M.reparent(d(),lc.id,short.id);M.layout(d());
+  assert(ghost&&Math.abs(ghost.x-lc.x)<0.5,"The reparent drop preview sits where the branch lands");
+  short.collapsed=true;M.layout(d());const badge=collapsedBadge(short);
+  assert(badge&&badge.x>short.x+short.w&&badge.x+badge.w<short.x+short.w+92,"A collapse badge sits in the connector gap of its own node");
+  const fortyFive=M.extend(d(),r.id,true);fortyFive.text="This mind-map label is forty-five chars long.";autoSize(fortyFive);
+  assert(fortyFive.text.length===45&&fortyFive.w<=440&&textLines(ctx,fortyFive).length===1,"A 45-character mind-map label still fits on one line");
+  fortyFive.text+=" And then some more words";autoSize(fortyFive);
+  assert(fortyFive.w===440&&textLines(ctx,fortyFive).length===2,"Longer mind-map labels wrap at the 440px maximum");
 }
 {
   setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);

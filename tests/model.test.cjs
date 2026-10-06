@@ -247,16 +247,52 @@ test("collapse hides descendants and cross-links without deleting content", () =
   assert.ok(M.visible(d).nodes.includes(next));
   assert.ok(M.validate(d));
 });
-test("same depth columns align despite varying node sizes", () => {
-  const { d, root, a, b, c } = tree();
+test("no columns: a short sibling's child sits closer than a long sibling's child", () => {
+  const { d, a, b, c } = tree();
   a.w = 300;
+  b.w = 80;
   const other = M.extend(d, b.id, true);
   M.layout(d);
-  assert.equal(c.x, other.x);
+  assert.equal(a.x, b.x, "siblings still start together after their shared parent");
+  assert.equal(c.x, a.x + a.w + 92);
+  assert.equal(other.x, b.x + b.w + 92);
+  assert.ok(other.x < c.x);
   M.setDirection(d, "vertical");
   a.h = 150;
   M.layout(d);
-  assert.equal(c.y, other.y);
+  assert.equal(c.y, a.y + a.h + 80);
+  assert.equal(other.y, b.y + b.h + 80);
+  assert.ok(other.y < c.y);
+});
+test("the tree connector gap is constant at every depth, both directions", () => {
+  for (const direction of ["horizontal", "vertical"]) {
+    const d = M.blank(), root = M.node("mind", 0, 0);
+    d.nodes.push(root);
+    root.direction = direction;
+    let n = root;
+    const chain = [root];
+    for (let depth = 1; depth < 5; depth++) {
+      n = M.extend(d, n.id, true);
+      if (direction === "horizontal") n.w = 60 + depth * 70; else n.h = 20 + depth * 30;
+      chain.push(n);
+      M.extend(d, n.id, false).w = 400;
+    }
+    M.layout(d);
+    for (let i = 1; i < chain.length; i++) {
+      const p = chain[i - 1], c = chain[i];
+      if (direction === "horizontal") assert.equal(c.x - (p.x + p.w), 92, direction + " depth " + i);
+      else assert.equal(c.y - (p.y + p.h), 80, direction + " depth " + i);
+    }
+  }
+});
+test("vertical children leave room for their placeholders and stay on one row", () => {
+  const { d, a, b } = tree();
+  M.setDirection(d, "vertical");
+  const label = M.placeholder(d, b.id);
+  M.layout(d);
+  assert.equal(a.y, b.y, "siblings share a row");
+  assert.equal(label.y + label.h + 4, b.y);
+  assert.equal(label.y, d.nodes[0].y + d.nodes[0].h + 80, "the placeholder starts one gap below the parent");
 });
 test("pastel roots give text children and preserve validated formatting", () => {
   const { d, root, a } = tree();

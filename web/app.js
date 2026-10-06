@@ -844,7 +844,7 @@ function fitWidth(n) {
   const text = M.isText(n),
     pad = n.w - textWrapWidth(n),
     natural = Math.max(0, ...measureLines(ctx, { ...n, w: 100000 }).map((line) => line.width));
-  n.w = Math.min(text ? 320 : 360, Math.max(text ? 60 : 120, Math.ceil(natural + pad + 2)));
+  n.w = Math.min(text ? 440 : 480, Math.max(text ? 60 : 120, Math.ceil(natural + pad + 2)));
 }
 const roughGenerator = rough.generator();
 const roughCanvases = new WeakMap();
