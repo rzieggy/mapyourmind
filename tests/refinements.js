@@ -260,5 +260,21 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   key("p");key("t");assert(!viewOnly&&tool==="text","Another tool key leaves the Pointer and picks that tool");setTool("select");
   await window.appCommand("pointer");assert(viewOnly&&laserActive,"The Pointer menu command turns it on");await window.appCommand("pointer");assert(!viewOnly,"and off");
 }
+{
+  // Typing then deleting everything must leave an empty one-line field, not a phantom line break.
+  setPointer(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();
+  const typeAndClear=n=>{selected=new Set([n.id]);beginEdit(n,{newElement:true});richEditor.focus();
+    document.execCommand("insertText",false,"ab");document.execCommand("delete");document.execCommand("delete");
+    return {html:richEditor.innerHTML,text:n.text};};
+  const r=M.node("mind",5000,5000,"process","Root");d().nodes.push(r);autoSize(r);
+  const kid=M.extend(d(),r.id,true);const one=Math.ceil(kid.fontSize*1.15+6);
+  const k=typeAndClear(kid);
+  assert(kid.text===""&&kid.h===one,"Clearing a new mind-map child keeps it one line high");commitEdit();
+  const box=M.node("flow",5000,5400,"process","");box.text="";d().nodes.push(box);const boxH=(autoSize(box),box.h);
+  const b=typeAndClear(box);
+  assert(box.text===""&&box.h===boxH,"Clearing a rectangle's text keeps its starting height");commitEdit();
+  const free=M.node("text",5000,5800);d().nodes.push(free);autoSize(free);const freeH=free.h;
+  typeAndClear(free);assert(free.text===""&&free.h===freeH,"Clearing free text keeps it one line high");commitEdit();
+}
 assert(!errors.length,"No uncaught errors through editor and presentation interactions");
 return results;

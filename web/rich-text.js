@@ -177,11 +177,25 @@ function editorSnapshot(n) {
 function editorText() {
   return plainEditorText(richEditor);
 }
-function plainEditorText(node) {
+// When a contenteditable is emptied by deleting, WebKit leaves a placeholder
+// <br> as its last node (sometimes with a stray newline text node) so the caret
+// has a line. It shows no extra line, so it must not be read as a line break,
+// or an emptied field grows by a line.
+function placeholderBreak(root) {
+  let node = root.lastChild;
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE && !node.data.replace(/[\u200B\n]/g, "")) { node = node.previousSibling || (node.parentNode !== root ? node.parentNode.previousSibling : null); continue; }
+    if (node.nodeType === Node.ELEMENT_NODE && node.nodeName !== "BR" && node.lastChild) { node = node.lastChild; continue; }
+    break;
+  }
+  return node?.nodeName === "BR" && !node.dataset.caretEnd && !node.dataset.softBreak ? node : null;
+}
+function plainEditorText(node, skip = node === richEditor ? placeholderBreak(node) : null) {
+  if (node === skip) return "";
   if (node.nodeType === Node.TEXT_NODE) return node.data.replace(/\u200B/g, "");
   if (node.nodeType === Node.ELEMENT_NODE && (node.dataset.caretEnd || node.dataset.softBreak)) return "";
   if (node.nodeName === "BR") return "\n";
-  return [...node.childNodes].map(plainEditorText).join("");
+  return [...node.childNodes].map((child) => plainEditorText(child, skip)).join("");
 }
 function editorOffsets() {
   const selection = getSelection();
@@ -311,6 +325,7 @@ function richRecord(n) {
 function readRichEditor(n) {
   let text = "",
     chars = [];
+  const placeholder = placeholderBreak(richEditor);
   function visit(node, style = {}) {
     if (node.nodeType === Node.TEXT_NODE) {
       const data = node.data.replace(/\u200B/g, "");
@@ -339,6 +354,7 @@ function readRichEditor(n) {
             .join("");
     }
     if (node.tagName === "BR") {
+      if (node === placeholder) return;
       text += "\n";
       chars.push({ ...style });
       return;
