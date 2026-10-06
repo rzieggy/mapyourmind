@@ -419,7 +419,9 @@ test("new rectangles are three lines tall and carry minLines through chains", ()
   assert.equal(M.placeholder(d, box.id).minLines, undefined);
   delete box.minLines;
   assert.equal(M.minLinesHeight(box), 0);
-  assert.equal(M.extend(d, box.id, false).minLines, undefined);
+  // An older rectangle stays as it is, but what Tab/Enter makes from it is a new three-line rectangle.
+  assert.equal(M.extend(d, box.id, false).minLines, 3);
+  assert.equal(box.minLines, undefined);
   assert.ok(M.validate(d));
   for (const bad of [0, 11, 1.5, "3", true, null]) {
     box.minLines = bad;

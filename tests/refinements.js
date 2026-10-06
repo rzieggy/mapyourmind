@@ -209,7 +209,7 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   selected=new Set([old.id]);beginEdit(old);text("Old box");commitEdit();
   assert(old.h===34&&old.minLines===undefined,"An older rectangle without the marker is not stretched when edited");
   const next=M.extend(d(),box.id,true);assert(next.minLines===3,"Tab from a new rectangle carries the marker");
-  const legacyNext=M.extend(d(),old.id,true);assert(legacyNext.minLines===undefined&&legacyNext.h===34,"Tab from an older rectangle keeps the older behaviour");
+  const legacyNext=M.extend(d(),old.id,true);assert(legacyNext.minLines===3&&legacyNext.h===three(legacyNext.fontSize)&&old.h===34,"Tab from an older rectangle makes a new three-line rectangle and leaves the old one alone");
   const terminal=M.node("flow",300,1000,"pill","Start");d().nodes.push(terminal);const after=M.extend(d(),terminal.id,true);
   assert(after.shape==="process"&&after.minLines===3&&after.h===three(after.fontSize),"After Start / end comes a three-line rectangle");
   const ph=M.placeholder(d(),box.id);assert(ph.minLines===undefined,"Placeholders never carry the marker");

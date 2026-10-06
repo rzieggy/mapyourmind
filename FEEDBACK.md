@@ -12,6 +12,7 @@ Zieggy's feedback from real use, waiting for a fix. Newest at the bottom. Move a
 
 | # | Fixed in | Note |
 | --- | --- | --- |
+| F21 | 2026-10-06 | Tab/Enter from an older (one-line) rectangle now makes a new three-line rectangle; the old one keeps its size. A rectangle growing past three lines keeps growing up and down evenly so Tab chains stay straight (Zieggy, 2026-10-06). |
 | F20 | 2026-10-06 | Bug: typing in a new mind-map child (or any text) and deleting it all made the field two lines tall. WebKit leaves a placeholder `<br>` in an emptied contenteditable, which was read as a newline. `placeholderBreak` in `web/rich-text.js` now skips it when reading the editor. Covered for mind-map text, rectangles and free text. |
 | F14 | `b050301` (2026-10-06) | No columns: each mind-map child starts 92px after its own parent's right edge (80px below its bottom in vertical maps, plus room for its row's tallest placeholder), so connectors have one length and short branches stay compact. Fit-width maximum raised to 440px text / 480px roots (about 45 characters). Existing maps reflow the next time they are edited. On a copy of the library 7 of 21 mind maps change; the mean visible connector gap drops from 99px (max 345) to 91px (max 110). |
 | F15 | `9372eb6` (2026-10-06) | While a text-style mind-map node is edited, the field has a 1px #2474D0 outline 3px outside it, growing with the text, no handles; gone on commit, never exported. Shapes and free text keep the borderless field. |

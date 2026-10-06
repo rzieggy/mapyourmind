@@ -487,8 +487,11 @@
       Object.assign(m, { shape: step.shape, fill: step.fill, w: step.w, minLines: step.minLines });
       m.h = minLinesHeight(m) || step.h;
       if (step.fillStyle) m.fillStyle = step.fillStyle; else delete m.fillStyle;
-    } else if (n.minLines !== undefined) m.minLines = n.minLines;
-    else delete m.minLines;
+    } else if (m.kind === "flow" && m.shape === "process") {
+      // Every new rectangle is three lines tall, even after an older, shorter one.
+      m.minLines = n.minLines ?? 3;
+      m.h = Math.max(m.h, minLinesHeight(m));
+    } else delete m.minLines;
     if (n.kind === "flow") {
       // Keep the new node on the source's centre line, so the connector
       // between them runs straight whatever their sizes.
