@@ -6,6 +6,8 @@ Zieggy's feedback from real use, waiting for a fix. Newest at the bottom. Move a
 
 | # | Date | Area | Feedback | Expected | Notes |
 | --- | --- | --- | --- | --- | --- |
+| F11 | 2026-10-06 | Style panel / stroke | The "Remove stroke / Add stroke" button feels redundant now that stroke has a colour row. | Remove the button. The Stroke preset row gets a **transparent** swatch (the same checkered-with-slash swatch Fill uses), first in the row. Picking it makes the stroke transparent; picking any colour brings the stroke back. | Button: `#transparentStroke` (`web/index.html`, handler ~`web/app.js` L3180, visibility in `inspect()` ~L3021). Today a strokeless shape **hides** the stroke colour row (`strokeless` in `inspect()`); that has to go, or the colour row (and the way back) disappears. Keep stroke width/sloppiness visible as now, keep hiding stroke style while transparent. Images use the same button as "Remove border": give them the transparent swatch too (and keep the quiet 1px default when a border comes back), or decide images keep a button. Undo stays one step. Update the feedback.js stroke tests. |
+| F12 | 2026-10-06 | Style panel / highlight | Highlight has no way to take a highlight off from the palette. | The Highlight row gets a **transparent** swatch (first in the row) that removes the highlight from the selected text. | Highlight swatches are built in `web/features.js` (~L455) and call `applyTextFormat("highlight", color)`. Check what value means "no highlight" in the marks (likely removing the `highlight` key rather than storing "transparent"), so saved marks stay valid for JS and native validation, and the toggle (⌘⇧H?) still works. |
 
 ## Done
 
