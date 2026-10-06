@@ -832,7 +832,7 @@ function autoSize(n) {
   }
   const lines = textLines(ctx, n);
   n.h = Math.max(
-    n.attachmentTo ? 26 : M.isText(n) ? 1 : n.shape === "process" ? 32 : 66,
+    n.attachmentTo ? 26 : M.isText(n) ? 1 : n.shape === "process" ? Math.max(32, M.minLinesHeight(n)) : 66,
     Math.ceil(lines.length * n.fontSize * 1.15 + textPaddingY(n) * 2),
   );
   if (n.shape === "decision" && !M.isText(n)) n.h = Math.max(110, n.h * 1.35);

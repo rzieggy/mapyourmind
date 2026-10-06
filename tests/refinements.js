@@ -34,7 +34,7 @@ assert(!free.fitWidth&&free.w===fitted+50&&free.h===Math.ceil(textLines(ctx,free
 const afterWidth=M.clone(free);undo();redo();const restored=d().nodes.find(n=>n.id===free.id);
 assert(restored.w===afterWidth.w&&restored.h===afterWidth.h,"Text resize undo/redo preserves computed geometry");
 selected=new Set([restored.id]);beginEdit(restored);text("Go");commitEdit();assert(!restored.fitWidth&&restored.w===afterWidth.w,"After a hand resize free text keeps its width while its text changes");
-const rectangle=M.node("flow",100,540,"process","Compact");d().nodes.push(rectangle);autoSize(rectangle);
+const rectangle=M.node("flow",100,540,"process","Compact");delete rectangle.minLines;d().nodes.push(rectangle);autoSize(rectangle);
 assert(rectangle.h===34&&textWrapWidth(rectangle)===rectangle.w-20,"Rectangle auto-sizing uses compact padding");
 const left={x:0,y:0,w:100,h:80}, moving={x:140,y:0,w:100,h:80}, right={x:280,y:0,w:100,h:80};
 let gaps=measureDistances(moving,[left,right]);
@@ -185,6 +185,43 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   assert(getComputedStyle(ed).outlineStyle==="none","Shapes keep the borderless editor");commitEdit();
   const free=M.node("text",200,700,"process","Free");d().nodes.push(free);autoSize(free);selected=new Set([free.id]);beginEdit(free);
   assert(getComputedStyle(ed).outlineStyle==="none","Free text keeps the borderless editor");commitEdit();
+}
+{
+  setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);
+  const three=fs=>Math.ceil(3*fs*1.15+12);
+  const box=M.node("flow",300,300,"process");d().nodes.push(box);const fs=box.fontSize;
+  assert(box.minLines===3&&box.w===180&&box.h===three(fs),"A new rectangle is three lines tall at its own font size");
+  const startH=box.h,cy=box.y+box.h/2;selected=new Set([box.id]);beginEdit(box,{newElement:true});
+  text("First line\nSecond line");
+  assert(box.h===startH&&box.w===180&&box.y+box.h/2===cy,"Typing two lines keeps the rectangle's size");
+  const ed=$("textEditor"),pad=parseFloat(getComputedStyle(ed).paddingTop)/view.z;
+  assert(Math.abs(pad-(box.h-2*fs*1.15)/2)<0.6&&getComputedStyle(ed).textAlign==="center","Rectangle text is centred horizontally and vertically");
+  text("One\nTwo\nThree");assert(box.h===startH,"Three lines still fit without resizing");
+  text("One\nTwo\nThree\nFour");
+  assert(box.h===Math.ceil(4*fs*1.15+12)&&Math.abs(box.y+box.h/2-cy)<0.01,"From the fourth line the rectangle grows, keeping its centre so chains stay straight");
+  text("A long sentence that wraps inside the fixed rectangle width");
+  assert(box.w===180&&textLines(ctx,box).length>1,"A rectangle keeps its fixed width and wraps there");
+  commitEdit();
+  const before=M.getDefaults();M.setDefaults({global:{fontSize:44}});
+  let xl;try{xl=M.node("flow",600,300,"process");}finally{M.setDefaults(before);}
+  assert(xl.fontSize===44&&xl.h===three(44)&&xl.h>startH,"An XL font gives a taller three-line rectangle");
+  const old=M.node("flow",300,700,"process","Old");delete old.minLines;old.h=34;d().nodes.push(old);
+  selected=new Set([old.id]);beginEdit(old);text("Old box");commitEdit();
+  assert(old.h===34&&old.minLines===undefined,"An older rectangle without the marker is not stretched when edited");
+  const next=M.extend(d(),box.id,true);assert(next.minLines===3,"Tab from a new rectangle carries the marker");
+  const legacyNext=M.extend(d(),old.id,true);assert(legacyNext.minLines===undefined&&legacyNext.h===34,"Tab from an older rectangle keeps the older behaviour");
+  const terminal=M.node("flow",300,1000,"pill","Start");d().nodes.push(terminal);const after=M.extend(d(),terminal.id,true);
+  assert(after.shape==="process"&&after.minLines===3&&after.h===three(after.fontSize),"After Start / end comes a three-line rectangle");
+  const ph=M.placeholder(d(),box.id);assert(ph.minLines===undefined,"Placeholders never carry the marker");
+  const copy=JSON.parse(JSON.stringify(d()));assert(M.validate(copy)&&copy.nodes.find(n=>n.id===box.id).minLines===3,"minLines survives a save/load round trip");
+  for(const bad of [0,11,2.5,"3",true,null]){const t=JSON.parse(JSON.stringify(d()));t.nodes.find(n=>n.id===box.id).minLines=bad;assert(!M.validate(t),"Invalid minLines is refused: "+JSON.stringify(bad));}
+  box.text="Short";box.marks=[];reflow(box);
+  selected=new Set([box.id]);render();const bh=resizeHandles(box).find(h=>h.side==="b");
+  pointer("pointerdown",bh.x,bh.y);pointer("pointermove",bh.x,bh.y+60);pointer("pointerup",bh.x,bh.y+60);
+  const tall=box.h;assert(tall>=startH+59,"Resizing a rectangle by hand still makes it taller");
+  selected=new Set([box.id]);render();const bh2=resizeHandles(box).find(h=>h.side==="b");
+  pointer("pointerdown",bh2.x,bh2.y);pointer("pointermove",bh2.x,bh2.y-tall);pointer("pointerup",bh2.x,bh2.y-tall);
+  assert(box.h===startH,"A rectangle cannot be resized below three lines");
 }
 {
   setViewOnly(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);

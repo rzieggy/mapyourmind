@@ -126,8 +126,16 @@
   function blank() {
     return { nodes: [], edges: [], direction: "horizontal" };
   }
+  // A rectangle made since 2026-10-06 is at least `minLines` lines tall at its
+  // own font size, so typing its first three lines never resizes it. Older
+  // rectangles carry no `minLines` and keep their size.
+  function minLinesHeight(n) {
+    return n.kind === "flow" && n.shape === "process" && n.minLines && !n.attachmentTo
+      ? Math.ceil(n.minLines * (n.fontSize ?? 14) * 1.15 + 2 * 6)
+      : 0;
+  }
   function node(kind, x, y, shape = "process", text = "") {
-    return {
+    const n = {
       id: uid(),
       kind,
       shape: kind === "mind" && shape === "process" ? "pill" : shape,
@@ -157,6 +165,11 @@
       ...(kind === "mind" || kind === "text" ? { fitWidth: true } : null),
       ...globalStyle(kind),
     };
+    if (kind === "flow" && shape === "process") {
+      n.minLines = 3;
+      n.h = Math.max(n.h, minLinesHeight(n));
+    }
+    return n;
   }
   function children(d, id) {
     return d.nodes
@@ -186,6 +199,7 @@
     const existing = d.nodes.find(n => n.attachmentTo === id);
     if (existing) return existing;
     const n = node("flow", owner.x, owner.y - 32, "process");
+    delete n.minLines;
     // A new placeholder dresses like its owner, apart from its yellow fill;
     // its height fits one line of the owner's font size until text reflows it.
     for (const key of ["sloppiness", "sw", "stroke", "strokeStyle", "fontFamily", "fontSize"])
@@ -470,9 +484,11 @@
     const terminator = n.kind === "flow" && n.shape === "pill";
     if (terminator) {
       const step = node("flow", 0, 0, "process");
-      Object.assign(m, { shape: step.shape, fill: step.fill, w: step.w, h: step.h });
+      Object.assign(m, { shape: step.shape, fill: step.fill, w: step.w, minLines: step.minLines });
+      m.h = minLinesHeight(m) || step.h;
       if (step.fillStyle) m.fillStyle = step.fillStyle; else delete m.fillStyle;
-    }
+    } else if (n.minLines !== undefined) m.minLines = n.minLines;
+    else delete m.minLines;
     if (n.kind === "flow") {
       // Keep the new node on the source's centre line, so the connector
       // between them runs straight whatever their sizes.
@@ -804,6 +820,8 @@
         return false;
       if (n.fitWidth !== undefined && typeof n.fitWidth !== "boolean")
         return false;
+      if (n.minLines !== undefined && !(Number.isInteger(n.minLines) && n.minLines >= 1 && n.minLines <= 10))
+        return false;
       if (n.fillStyle !== undefined && !fillStyles.includes(n.fillStyle))
         return false;
       if (n.edges !== undefined && !edgeStyles.includes(n.edges)) return false;
@@ -1000,6 +1018,7 @@
     subtree,
     layout,
     mainGap,
+    minLinesHeight,
     connect,
     extend,
     normalizeOrder,

@@ -406,3 +406,23 @@ test("global settings shape new elements only, and Start / end is always followe
     assert.ok(M.validate(doc));
   } finally { M.setDefaults({}); }
 });
+test("new rectangles are three lines tall and carry minLines through chains", () => {
+  const d = M.blank(), box = M.node("flow", 0, 0, "process"), decision = M.node("flow", 0, 0, "decision");
+  d.nodes.push(box, decision);
+  assert.equal(box.minLines, 3);
+  assert.equal(box.h, Math.ceil(3 * box.fontSize * 1.15 + 12));
+  assert.equal(M.minLinesHeight(box), box.h);
+  assert.equal(decision.minLines, undefined);
+  assert.equal(M.node("mind", 0, 0).minLines, undefined);
+  assert.equal(M.node("text", 0, 0).minLines, undefined);
+  assert.equal(M.extend(d, box.id, true).minLines, 3);
+  assert.equal(M.placeholder(d, box.id).minLines, undefined);
+  delete box.minLines;
+  assert.equal(M.minLinesHeight(box), 0);
+  assert.equal(M.extend(d, box.id, false).minLines, undefined);
+  assert.ok(M.validate(d));
+  for (const bad of [0, 11, 1.5, "3", true, null]) {
+    box.minLines = bad;
+    assert.equal(M.validate(d), false, String(bad));
+  }
+});

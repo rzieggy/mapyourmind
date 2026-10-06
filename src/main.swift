@@ -79,6 +79,7 @@ final class LocalStore {
                 for field in ["offsetX", "offsetY"] { if let value = node[field] { guard let number = value as? Double, number.isFinite else { return false } } }
                 if let value = node["collapsed"], !(value is Bool) { return false }
                 if let value = node["fitWidth"], !(value is Bool) { return false }
+                if let value = node["minLines"] { guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue == number.doubleValue.rounded(), (1...10).contains(number.doubleValue) else { return false } }
                 if kind == "image" {
                     if let reference=node["imageRef"] as? String {
                         guard object["schema"] as? Int == 3, reference.range(of:"^[0-9a-f]{64}$",options:.regularExpression) != nil else { return false }
@@ -711,6 +712,13 @@ if CommandLine.arguments.contains("--storage-test") {
         invalidNote["documents"] = [["id": "bad", "title": "Invalid", "mode": "notes", "canvas": ["nodes": [], "edges": []], "note": ["html": "<p>Bad</p>", "fontFamily": "Unbundled", "fontSize": 19, "textColor": "#1b1b1f"]]]
         let invalidData = try JSONSerialization.data(withJSONObject: invalidNote)
         precondition(!store.valid(invalidData))
+        // `minLines` is optional and only ever a small positive integer; files without it stay valid.
+        func rectangle(_ extra: String) -> Data { Data("{\"schema\":2,\"documents\":[{\"id\":\"r\",\"title\":\"R\",\"canvas\":{\"nodes\":[{\"id\":\"a\",\"kind\":\"flow\",\"shape\":\"process\",\"text\":\"\",\"x\":0,\"y\":0,\"w\":180,\"h\":78\(extra)}],\"edges\":[]}}]}".utf8) }
+        precondition(store.valid(rectangle("")) && store.valid(rectangle(",\"minLines\":3")) && store.valid(rectangle(",\"minLines\":1")))
+        for bad in ["0", "11", "2.5", "true", "\"3\"", "null"] { precondition(!store.valid(rectangle(",\"minLines\":" + bad)), "minLines " + bad) }
+        try store.save(try JSONSerialization.jsonObject(with: rectangle(",\"minLines\":3")) as! [String: Any])
+        let kept = (((try store.load()["state"] as? [String: Any])?["documents"] as? [[String: Any]])?.first?["canvas"] as? [String: Any])?["nodes"] as? [[String: Any]]
+        precondition(kept?.first?["minLines"] as? Int == 3)
         let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:2,pixelsHigh:2,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:0,bitsPerPixel:0)!
         for x in 0..<2 {for y in 0..<2 {bitmap.setColor(NSColor(deviceRed:1,green:0,blue:0,alpha:1),atX:x,y:y)}}
         let imageData="data:image/png;base64,"+bitmap.representation(using:.png,properties:[:])!.base64EncodedString()
