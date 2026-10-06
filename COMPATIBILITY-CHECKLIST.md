@@ -1,5 +1,20 @@
 # mapyourmind project notes
 
+## Mind-map spacing and text boxes, 2026-10-06 (FEEDBACK F14–F18; override older decisions below)
+- No columns: a mind-map child starts `M.mainGap` (92px horizontal / 80px vertical) after its own parent; vertical
+  siblings share a row below room for their tallest placeholder. Fit-width max 440px text / 480px roots (was 320/360).
+  Layout is not stored, so existing maps reflow on their next edit. Library copy: 7 of 21 mind maps change, visible
+  connector gap mean 99 → 91px, max 345 → 110px (vertical gap + placeholder).
+- Editing a text-style mind-map node shows a 1px #2474D0 CSS outline 3px outside the field (overrides "nothing but
+  the caret" for that case only). New free text gets `fitWidth` (same 60–440px fit). New rectangles carry
+  `minLines: 3` (JS + Swift validated, 1–10). Header and document menu have **Open in browser** (hidden in browser mode).
+- Sweep counts, baseline (`b035237`) → final (`e5b2fb0`): node 42 → 45 · integration 492 → 492 · schema 11 → 11 ·
+  navigation 114 → 122 · notebook 60 → 60 · feedback 116 → 116 · Program A 588 → 588 · Program 604 → 604 ·
+  refinements 76 → 112 · browser mode 42 → 42 · perf 11 → 11; storage test adds `minLines` cases and passes.
+- Perf, whole-diagram paint 45.1 → 33.2 ms (run-to-run noise 33–47 ms; no regression), save round trip 222 → 180 ms,
+  load 123 → 122 ms. No flakes seen in eight sweeps.
+- Local commits only; nothing pushed, tagged, released or installed.
+
 ## Batch C+D, 2026-10-05 (selection, colours, Settings; override older decisions below)
 - Marquee also selects connectors whose drawn line or label touches it; a selected connector gets a soft blue halo along
   its drawn path and label (UI only). Stroke and Text colour have the shared preset row + pinned custom picker; swatches
