@@ -166,7 +166,7 @@ function drawNoteBadges() {
     ctx.quadraticCurveTo(6, 6, 8, 6);
     ctx.stroke();
     ctx.fillStyle = "#42424a";
-    ctx.font = '500 11px "Google Sans"';
+    ctx.font = '500 11px "Inter"';
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(String(b.count), 26, 12);

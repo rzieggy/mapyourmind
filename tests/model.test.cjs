@@ -345,7 +345,7 @@ test("only uniform formatting becomes typing style", () => {
 
 test("Legacy donor appearance wins over new-element preferences",()=>{
  const doc=M.blank(),donor=M.node("mind",0,0);doc.nodes.push(donor);
- M.setDefaults({global:{fontFamily:"Google Sans",sloppiness:2,sw:3,fontSize:34}});
+ M.setDefaults({global:{fontFamily:"Inter",sloppiness:2,sw:3,fontSize:34}});
  // A root's child is compact text: shape, fill, fill style and height come from that rule, the rest from the donor.
  const step=["shape","fill","fillStyle","stroke","h","textAlign"];
  try {const created=M.extend(doc,donor.id,true);for(const key of M.visualProperties.filter(k=>!step.includes(k)))assert.deepEqual(created[key],donor[key],key);assert.ok(M.isText(created));assert.ok(M.validate(doc));}finally{M.setDefaults({});}
@@ -390,17 +390,17 @@ test("preferences keep only valid global settings and drop older entries", () =>
 test("global settings shape new elements only, and Start / end is always followed by a white rectangle", () => {
   const doc = M.blank(), before = M.node("flow", 0, 0), start = M.node("flow", 0, 300, "pill", "Start");
   doc.nodes.push(before, start);
-  M.setDefaults({global:{fontFamily:"Google Sans",sloppiness:2,sw:3,fontSize:34},afterTerminator:"decision"});
+  M.setDefaults({global:{fontFamily:"Inter",sloppiness:2,sw:3,fontSize:34},afterTerminator:"decision"});
   try {
     assert.equal(before.fontFamily, undefined); assert.equal(before.sw, 1.8); assert.equal(before.fontSize, 19);
     for (const kind of ["flow", "mind", "text"]) {
       const n = M.node(kind, 0, 0);
-      assert.deepEqual([n.fontFamily, n.sloppiness, n.sw, n.fontSize], ["Google Sans", 2, 3, 34], kind);
+      assert.deepEqual([n.fontFamily, n.sloppiness, n.sw, n.fontSize], ["Inter", 2, 3, 34], kind);
     }
     for (const kind of ["image", "sticker"]) assert.equal(M.node(kind, 0, 0).fontFamily, undefined, kind);
     const other = M.node("flow", 400, 0); doc.nodes.push(other);
     const e = M.connect(doc, before.id, other.id);
-    assert.deepEqual([e.fontFamily, e.sloppiness, e.sw, e.fontSize], ["Google Sans", 2, 3, undefined]);
+    assert.deepEqual([e.fontFamily, e.sloppiness, e.sw, e.fontSize], ["Inter", 2, 3, undefined]);
     const next = M.extend(doc, start.id, true);
     assert.equal(next.shape, "process"); assert.equal(next.fill, "#ffffff");
     assert.ok(M.validate(doc));
@@ -427,4 +427,20 @@ test("new rectangles are three lines tall and carry minLines through chains", ()
     box.minLines = bad;
     assert.equal(M.validate(d), false, String(bad));
   }
+});
+
+test("Google Sans in old files and preferences becomes Inter", () => {
+  const state = { documents: [
+    { canvas: { nodes: [{ fontFamily: "Google Sans" }, { fontFamily: "Excalifont" }], edges: [{ fontFamily: "Google Sans" }] } },
+    { canvas: { nodes: [], edges: [] }, note: { fontFamily: "Google Sans" } },
+  ] };
+  assert.equal(M.migrateFonts(state), 3);
+  assert.deepEqual(state.documents[0].canvas.nodes.map((n) => n.fontFamily), ["Inter", "Excalifont"]);
+  assert.equal(state.documents[1].note.fontFamily, "Inter");
+  assert.equal(M.migrateFonts(state), 0);
+  M.setDefaults({ global: { fontFamily: "Google Sans" } });
+  assert.equal(M.getDefaults().global.fontFamily, "Inter");
+  M.setDefaults({});
+  const legacy = M.blank(); legacy.nodes.push({ ...M.node("flow", 0, 0), fontFamily: "Google Sans" });
+  assert.ok(M.validate(legacy));
 });

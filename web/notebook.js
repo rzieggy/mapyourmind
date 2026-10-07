@@ -16,7 +16,7 @@ notebook.innerHTML = `<nav id="noteToolbar" aria-label="Notes formatting">
 </nav>
 <div id="noteScroll"><article id="notePage"><h1 id="noteHeading"></h1><div id="noteBody" contenteditable="true" role="textbox" aria-label="Note content" aria-multiline="true" spellcheck="true" data-placeholder="Start writing…"></div></article></div>
 <aside id="noteInspector" aria-label="Note style"><div class="eyebrow">NOTE STYLE</div>
-<label>Font family<select id="noteFont"><option value="Excalifont">✎ Handwritten</option><option value="Google Sans">A · Google Sans</option><option value="Comic Shanns">&lt;/&gt; Comic Shanns</option><option value="Arial">Arial</option></select></label>
+<label>Font family<select id="noteFont"><option value="Excalifont">✎ Handwritten</option><option value="Inter">A · Inter</option><option value="Comic Shanns">&lt;/&gt; Comic Shanns</option><option value="Arial">Arial</option></select></label>
 <label>Font size<select id="noteFontSize"><option value="14">Extra small · 14</option><option value="19">Small · 19</option><option value="25">Medium · 25</option><option value="34">Large · 34</option><option value="44">Heading · 44</option></select></label>
 <label>Text color<input id="noteColor" type="color"></label><p class="note-style-hint">Applies to this whole note.<br>Saved only on this Mac.</p></aside>`;
 $("stage").append(notebook);
@@ -261,13 +261,13 @@ for(const [id,choices] of labelChoices){
 // Three font tiles, each written in its own font so the choice is visible before it is made.
 // Arial is no longer offered, but stays a valid value: a node that already uses it keeps it,
 // and then no tile is pressed.
-const fontChoices=[["Excalifont","Handwritten","Excalifont, cursive"],["Google Sans","Google Sans","'Google Sans', sans-serif"],["Comic Shanns","Comic","'Comic Shanns', monospace"]];
+const fontChoices=[["Excalifont","Handwritten","Excalifont, cursive"],["Inter","Inter","'Inter', sans-serif"],["Comic Shanns","Comic","'Comic Shanns', monospace"]];
 {
   const select=$("fontFamily"),group=document.createElement("div");
   group.className="stroke-choice-group font-tiles";group.dataset.select="fontFamily";group.setAttribute("role","group");group.setAttribute("aria-label","Font family");
   for(const [value,label,family] of fontChoices){
     const b=document.createElement("button");b.type="button";b.dataset.value=value;b.title=value;b.setAttribute("aria-label",value);
-    // The page sets Google Sans on every element with !important, so each tile
+    // The page sets Inter on every element with !important, so each tile
     // sets its own font the same way.
     b.innerHTML='<span class="font-sample">Aa</span><span class="font-name">'+label+'</span>';
     for(const el of [b,...b.children])el.style.setProperty("font-family",family,"important");

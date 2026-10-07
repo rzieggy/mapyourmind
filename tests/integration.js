@@ -5,7 +5,7 @@ const browserErrors=[];window.addEventListener("error",e=>browserErrors.push(e.m
 const failureContext = () => {
   let fonts = "?";
   try {
-    fonts = ["Excalifont", "Google Sans", "Comic Shanns"]
+    fonts = ["Excalifont", "Inter", "Comic Shanns"]
       .map((f) => f.split(" ")[0] + (document.fonts.check(`19px "${f}"`) ? "+" : "-"))
       .join("");
   } catch {}
@@ -104,7 +104,7 @@ assert(
   "Create and edit flowchart node",
 );
 const root = d().nodes[0];
-Object.assign(root,{shape:"io",fill:"transparent",stroke:"#6b4f8a",sw:3,strokeStyle:"dashed",sloppiness:0,fontFamily:"Google Sans",fontSize:27,textColor:"#5b3344",textAlign:"right"});
+Object.assign(root,{shape:"io",fill:"transparent",stroke:"#6b4f8a",sw:3,strokeStyle:"dashed",sloppiness:0,fontFamily:"Inter",fontSize:27,textColor:"#5b3344",textAlign:"right"});
 key(canvas, "Tab");
 type("Research users");
 key($("textEditor"), "Enter");
@@ -1493,7 +1493,7 @@ assert(
     documentFonts.includes("Arial") &&
     $("fontFamily").hidden &&
     familyButtons.map((b) => b.dataset.value).join() ===
-      "Excalifont,Google Sans,Comic Shanns",
+      "Excalifont,Inter,Comic Shanns",
   "Font family is a row of buttons rather than a dropdown",
 );
 selected.clear();
@@ -1793,13 +1793,13 @@ current.canvas=v13Before;selected.clear();closeNotes();await window.flushSave();
 
 // v1.4: local UI typography, comments, and unambiguous resize/connector handles.
 const v14Before=M.clone(d());if(editing)commitEdit();closeNotes();setTool("select");
-await document.fonts.load('400 12px "Google Sans"');await document.fonts.load('500 12px "Google Sans"');
-assert([...document.fonts].some(f=>f.family.replaceAll('"','')==="Google Sans"&&f.status==="loaded"),"Bundled Google Sans loads offline");
-assert(getComputedStyle($("documentSidebar")).fontFamily.includes("Google Sans")&&getComputedStyle($("inspector")).fontFamily.includes("Google Sans"),"Sidebar and style panel use Google Sans");
+await document.fonts.load('400 12px "Inter"');await document.fonts.load('500 12px "Inter"');
+assert([...document.fonts].some(f=>f.family.replaceAll('"','')==="Inter"&&f.status==="loaded"),"Bundled Inter loads offline");
+assert(getComputedStyle($("documentSidebar")).fontFamily.includes("Inter")&&getComputedStyle($("inspector")).fontFamily.includes("Inter"),"Sidebar and style panel use Inter");
 current.canvas=M.blank();const commentNode=M.node("flow",140,180,"process","A node with comments");d().nodes.push(commentNode);selected=new Set([commentNode.id]);inspect();zoom(1);
 beginEdit(commentNode);assert(getComputedStyle(richEditor).fontFamily.includes("Excalifont"),"Whiteboard text editor keeps Excalifont");commitEdit();canvas.focus();
 openNotes(commentNode.id);
-assert(parseFloat(getComputedStyle($("newNoteText")).fontSize)===12&&getComputedStyle($("newNoteText")).fontFamily.includes("Google Sans"),"Comments use compact 12px Google Sans");
+assert(parseFloat(getComputedStyle($("newNoteText")).fontSize)===12&&getComputedStyle($("newNoteText")).fontFamily.includes("Inter"),"Comments use compact 12px Google Sans");
 assert(getComputedStyle($("notesPanel")).boxShadow!=="none"&&getComputedStyle($("inspector")).boxShadow!=="none","Both right sidebars have visible separation shadows");
 $("newNoteText").value="First comment";$("newNoteText").dispatchEvent(new Event("input"));
 key($("newNoteText"),"Enter");assert(commentNode.notes.length===1&&$("newNoteText").value==="","Enter submits and clears the comment composer");
@@ -1909,8 +1909,8 @@ current.canvas=circleBefore;selected.clear();inspect();await window.flushSave();
   assert(!selected.size,"A marquee that touches no line or label leaves connectors unselected");
   drag(80,80,300,185);
   const fontBefore=M.clone(d());
-  $("fontFamily").value="Google Sans";$("fontFamily").dispatchEvent(new Event("change"));
-  assert(ma.fontFamily==="Google Sans"&&top.fontFamily==="Google Sans"&&bottom.fontFamily!=="Google Sans","A font change after a marquee reaches the selected connector's label");
+  $("fontFamily").value="Inter";$("fontFamily").dispatchEvent(new Event("change"));
+  assert(ma.fontFamily==="Inter"&&top.fontFamily==="Inter"&&bottom.fontFamily!=="Inter","A font change after a marquee reaches the selected connector's label");
   undo();
   assert(M.same(d(),fontBefore),"The font change on shapes and labels undoes as one step");
   const [ua,ub,uc,ud]=[ma,mb,mc,md].map(n=>d().nodes.find(a=>a.id===n.id)),

@@ -13,5 +13,5 @@ openDoc(canvasDoc.id);assert(d().nodes.length===3,"Schema-3 canvas opens with ev
 await native("savePreferences",{preferences:{global:{fontFamily:"Comic Shanns",sw:3},process:{fill:"#123456"},afterTerminator:"decision"}});const storedPreferences=await native("loadPreferences");assert(storedPreferences.global.fontFamily==="Comic Shanns"&&storedPreferences.global.sw===3&&!storedPreferences.process&&!storedPreferences.afterTerminator,"Native preferences persist global settings separately from documents and drop older entries");
 const safe=M.clone((await native("load")).state);let rejected=false;try{const bad=M.clone(input);bad.documents[0].canvas.nodes[0].imageRef="../documents";await native("save",{state:bad});}catch{rejected=true;}
 assert(rejected&&M.same((await native("load")).state,safe),"Invalid image references cannot replace the last valid library");
-const local=await native("localFonts");assert(local.length===8&&document.fonts.check('19px "Google Sans"'),"Bundled Google Sans loads from the app itself");
+await document.fonts.load('19px "Inter"');assert(document.fonts.check('19px "Inter"')&&[...document.fonts].some(f=>f.family.replaceAll('"','')==="Inter"&&f.status==="loaded"),"Bundled Inter loads from the app itself");
 return results;

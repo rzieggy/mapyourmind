@@ -3022,7 +3022,6 @@ function inspect() {
     $(key).value = key === "strokeColor" && value === "transparent" ? "#1b1b1f" : value;
   $("edgeArrow").checked = e?.arrow ?? true;
   $("fontFamily").parentElement.hidden = !textual;
-  $("fontFallback").hidden = !textual || googleSansAvailable || ![...ns, ...es].some(item => item.fontFamily === "Google Sans");
   for (const id of ["strokeStyle", "sloppiness"]) $(id).parentElement.hidden = n?.kind === "sticker" || n?.kind === "text" || borderless;
   if (strokeless) $("strokeStyle").parentElement.hidden = true;
   for (const [id, key] of [["fontFamily","fontFamily"],["strokeStyle","strokeStyle"],["sloppiness","sloppiness"],["strokeWidth","sw"],["fillStyle","fillStyle"],["edges","edges"]]) {
@@ -3872,21 +3871,13 @@ setInterval(async () => {
 (async () => {
   $("newDoc").disabled=true;
   try {
-    // Resolve local compatibility fonts before measuring; never distribute them.
-    const localFaces = await native("localFonts");
-    const fontResults = await Promise.allSettled(localFaces.map(async face => {
-      const font = new FontFace("Google Sans", `url(${face.data})`, {style: face.style, weight: face.weight});
-      await font.load(); document.fonts.add(font);
-    }));
-    googleSansAvailable = fontResults.some(result => result.status === "fulfilled");
-    if (!googleSansAvailable) {
-      try {
-        const font = await new FontFace("Google Sans", 'local("Google Sans"), local("GoogleSans-Regular")').load();
-        document.fonts.add(font); googleSansAvailable = true;
-      } catch { /* Arial is the explicit shared canvas/editor fallback. */ }
-    }
+    // Scripts after this one (navigation.js and others) must exist before the
+    // library opens. A fast native reply could otherwise arrive while the parser
+    // is still between scripts; the old font loader's delay used to hide that.
+    if (document.readyState === "loading")
+      await new Promise((resolve) => addEventListener("DOMContentLoaded", resolve, { once: true }));
     // Read the store while the fonts load; nothing is measured before both.
-    const [result, preferences] = await Promise.all([native("load"),native("loadPreferences"),document.fonts.load("19px Excalifont"),document.fonts.load('19px "Comic Shanns"'),document.fonts.load('13px "Google Sans"'),document.fonts.load('bold 19px "Google Sans"'),document.fonts.load('500 11px "Google Sans"')]);
+    const [result, preferences] = await Promise.all([native("load"),native("loadPreferences"),document.fonts.load("19px Excalifont"),document.fonts.load('19px "Comic Shanns"'),document.fonts.load('13px "Inter"'),document.fonts.load('bold 19px "Inter"'),document.fonts.load('500 11px "Inter"'),document.fonts.load('italic 19px "Inter"')]);
     M.setDefaults(preferences);
     state = result.state;
     for (const doc of state.documents || [])
@@ -3903,7 +3894,8 @@ setInterval(async () => {
       throw Error("Invalid document. Your original data has been preserved.");
     loaded = true;
     $("newDoc").disabled=false;
-    if (updateRetention(result.clock)) changed();
+    const migratedFonts = M.migrateFonts(state);
+    if (updateRetention(result.clock) || migratedFonts) changed();
     initDocumentSidebar();
     const startup = state.documents
       .filter((a) => !a.trashedAt)

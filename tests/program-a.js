@@ -16,18 +16,18 @@ const swatches=[...$("fillColors").querySelectorAll("button")];assert(swatches[0
 Object.assign(a,{fill:"#fff0a6"});Object.assign(b,{fill:"#dbe4ff"});inspect();assert(!swatches.some(el=>el.getAttribute("aria-pressed")==="true"),"Mixed fills do not imply a single chosen color");
 const originalOrder=d().nodes.map(n=>n.id);selected=new Set([a.id]);for(const action of ["front","backward","forward","back"]){const previous=M.clone(d()),steps=history.past.length;layerSelection(action);assert(M.validate(d()),"Layer action remains valid: "+action);if(history.past.length>steps)undo();assert(M.same(d(),previous),"Layer undo preserves attachments and hierarchy: "+action);selected=new Set([a.id]);}
 const text=M.node("flow",80,80,"process","Risk assess");Object.assign(text,{w:320,h:90,fontSize:25});d().nodes.push(text);
-for(const family of ["Excalifont","Google Sans","Comic Shanns","Arial"])for(const size of [14,19,25,34,44])for(const z of [.25,.5,.57,.75,1,1.25,1.5,1.75,2]){
+for(const family of ["Excalifont","Inter","Comic Shanns","Arial"])for(const size of [14,19,25,34,44])for(const z of [.25,.5,.57,.75,1,1.25,1.5,1.75,2]){
  text.fontSize=size;text.w=500;
  text.fontFamily=family;view={x:30,y:80,z};selected=new Set([text.id]);beginEdit(text);
  assert(getComputedStyle(richEditor).transform==="none","Native editor stays unscaled: "+family+" "+z);
  for(const offset of [text.text.length-1,text.text.length]){richEditor.setSelectionRange(offset);const caret=getSelection().getRangeAt(0).getBoundingClientRect();const node=richEditor.querySelector("span").firstChild;const glyph=document.createRange();glyph.setStart(node,offset-1);glyph.setEnd(node,offset);const bounds=glyph.getBoundingClientRect();assert(Math.abs(caret.x-bounds.right)<1.1,"Caret follows Risk assess glyph boundary: "+family+" "+z+" "+offset);}
  commitEdit();
 }
-const availableGoogle=googleSansAvailable;googleSansAvailable=false;selected=new Set([text.id]);text.fontFamily="Google Sans";inspect();assert(elementFont(text)==="Arial, sans-serif"&&!$("fontFallback").hidden,"Unavailable Google Sans uses a disclosed shared Arial fallback");googleSansAvailable=availableGoogle;
-text.fontSize=25;text.fontFamily="Google Sans";text.text="Risk assess priorities é 👩‍💻 repeated ssss";text.w=180;view={x:80,y:130,z:.57};beginEdit(text);const wrapped=text.text;readRichEditor(text);assert(text.text===wrapped,"Canonical soft wrapping never changes saved Unicode text");
+selected=new Set([text.id]);text.fontFamily="Google Sans";inspect();assert(elementFont(text)==='"Inter", Arial, sans-serif',"An element still naming Google Sans draws in Inter");
+text.fontSize=25;text.fontFamily="Inter";text.text="Risk assess priorities é 👩‍💻 repeated ssss";text.w=180;view={x:80,y:130,z:.57};beginEdit(text);const wrapped=text.text;readRichEditor(text);assert(text.text===wrapped,"Canonical soft wrapping never changes saved Unicode text");
 richEditor.dispatchEvent(new CompositionEvent("compositionstart"));key(richEditor,"Enter",{isComposing:true});assert(editing?.id===text.id,"IME Enter does not create a node");richEditor.dispatchEvent(new CompositionEvent("compositionend"));paint();await wait(30);await native("snapshot",{name:"program-a-google"});commitEdit();
 await window.flushSave();const saved=await native("load");assert(saved.state.schema===3&&canonical(saved.state.documents.find(doc=>doc.id===testDoc.id).canvas)===canonical(d()),"Release A saves and reloads through schema 3");
-selected=new Set([text.id]);await copyEditable();await pasteEditable();assert(d().nodes.at(-1).fontFamily==="Google Sans","Editable copy preserves local font choice");await exportPNG(true,"selection","transparent",2);assert((await native("clipboardProbe")).png,"Shared text renderer exports PNG");
+selected=new Set([text.id]);await copyEditable();await pasteEditable();assert(d().nodes.at(-1).fontFamily==="Inter","Editable copy preserves local font choice");await exportPNG(true,"selection","transparent",2);assert((await native("clipboardProbe")).png,"Shared text renderer exports PNG");
 assert(!errors.length,"No uncaught browser errors in current-baseline Release A");
 
 return results;

@@ -6,18 +6,6 @@ import Darwin
 import PDFKit
 import CryptoKit
 
-// Google Sans ships inside this app (SIL OFL 1.1, see web/assets/GOOGLE-SANS-NOTICE.md).
-func localFontFaces() -> [[String:String]] {
-    guard let root=Bundle.main.resourceURL?.appendingPathComponent("web/assets",isDirectory:true) else { return [] }
-    var faces=[[String:String]]()
-    for style in ["normal","italic"] { for weight in [400,500,600,700] {
-        if let data=try? Data(contentsOf:root.appendingPathComponent("GoogleSans-\(style)-\(weight).woff2")),data.count<2_000_000 {
-            faces.append(["style":style,"weight":String(weight),"data":"data:font/woff2;base64,"+data.base64EncodedString()])
-        }
-    }}
-    return faces
-}
-
 func monotonicClock() -> [String: Any] {
     var size = 0
     sysctlbyname("kern.bootsessionuuid", nil, &size, nil, 0)
@@ -68,13 +56,13 @@ final class LocalStore {
             guard let id = doc["id"] as? String, documentIDs.insert(id).inserted, doc["title"] is String, let canvas = doc["canvas"] as? [String: Any], let nodes = canvas["nodes"] as? [[String: Any]], let edges = canvas["edges"] as? [[String: Any]] else { return false }
             if doc["mode"] as? String == "notes" {
                 guard let note = doc["note"] as? [String: Any], let html = note["html"] as? String, html.utf16.count <= 2_000_000,
-                      let font = note["fontFamily"] as? String, ["Excalifont", "Google Sans", "Comic Shanns", "Arial"].contains(font),
+                      let font = note["fontFamily"] as? String, ["Excalifont", "Inter", "Comic Shanns", "Arial", "Google Sans"].contains(font),
                       let size = note["fontSize"] as? Int, [14,19,25,34,44].contains(size),
                       let color = note["textColor"] as? String, color.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil,
                       nodes.isEmpty, edges.isEmpty else { return false }
             }
             for element in nodes + edges {
-                if let font = element["fontFamily"] { guard let font = font as? String, ["Excalifont", "Google Sans", "Comic Shanns", "Arial"].contains(font) else { return false } }
+                if let font = element["fontFamily"] { guard let font = font as? String, ["Excalifont", "Inter", "Comic Shanns", "Arial", "Google Sans"].contains(font) else { return false } }
                 if let style = element["strokeStyle"] { guard let style = style as? String, ["solid","dashed","dotted"].contains(style) else { return false } }
                 if let level = element["sloppiness"] { guard let level = level as? Int, [0,1,2].contains(level) else { return false } }
             }
@@ -186,7 +174,7 @@ final class LocalStore {
             return n.doubleValue
         }
         var kept:[String:Any]=[:]
-        if let font=global["fontFamily"] as? String, ["Excalifont","Google Sans","Comic Shanns"].contains(font) { kept["fontFamily"]=font }
+        if let font=global["fontFamily"] as? String, ["Excalifont","Inter","Comic Shanns","Google Sans"].contains(font) { kept["fontFamily"]=font=="Google Sans" ? "Inter" : font }
         if let value=number(global["sloppiness"]), [0.0,1,2].contains(value) { kept["sloppiness"]=Int(value) }
         if let value=number(global["sw"]), [1.0,1.8,3].contains(value) { kept["sw"]=value }
         if let value=number(global["fontSize"]), [14.0,19,25,34,44].contains(value) { kept["fontSize"]=Int(value) }
@@ -247,8 +235,7 @@ final class NotePDFRenderer: NSObject, WKNavigationDelegate {
             try FileManager.default.copyItem(at: source.appendingPathComponent("style.css"), to: directory.appendingPathComponent("style.css"))
             try FileManager.default.copyItem(at: source.appendingPathComponent("assets"), to: directory.appendingPathComponent("assets"))
             let url = directory.appendingPathComponent("index.html")
-            let fontCSS=localFontFaces().map { face in "@font-face{font-family:'Google Sans';font-style:"+face["style"]!+";font-weight:"+face["weight"]!+";src:url("+face["data"]!+") format('woff2');}" }.joined()
-            let renderedHTML=html.replacingOccurrences(of:"</head>",with:"<style>"+fontCSS+"</style></head>")
+            let renderedHTML=html
             try renderedHTML.write(to: url, atomically: true, encoding: .utf8)
             web.loadFileURL(url, allowingReadAccessTo: directory)
         } catch { finish(.failure(error)); return }
@@ -535,7 +522,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         case "loadPreferences": queue.async { self.reply(id,result:self.store.loadPreferences()) }
         case "savePreferences": guard let preferences=b["preferences"] as? [String:Any] else { reply(id,error:"Invalid preferences.");return };queue.async { do {try self.store.savePreferences(preferences);self.reply(id,result:true)}catch{self.reply(id,error:error.localizedDescription)} }
         case "putImage": guard let encoded=b["data"] as? String else {reply(id,error:"Missing image.");return};queue.async {do{self.reply(id,result:try self.store.putImage(encoded))}catch{self.reply(id,error:(error as? StoreFailure)?.message ?? error.localizedDescription)}}
-        case "localFonts": reply(id,result:localFontFaces())
         case "clock": reply(id, result: monotonicClock())
         case "load": queue.async { do { var result = try self.store.load(); result["clock"] = monotonicClock(); self.reply(id, result: result) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }
         case "save": guard let state = b["state"] else { return }; if failEntrySave { reply(id, error: "Test: the save was made to fail."); return }; queue.async { do { try self.store.save(state); self.reply(id, result: true) } catch { self.reply(id, error: (error as? StoreFailure)?.message ?? error.localizedDescription) } }

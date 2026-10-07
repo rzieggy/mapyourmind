@@ -242,7 +242,7 @@ selected=new Set([treeChild.id]);contextAt(d().nodes.find(n=>n.id===treeChild.id
 assert(d().nodes.some(n=>n.parent===treeChild.id),'Right-click Add child creates a child');
 commitEdit();const flowNow=()=>d().nodes.find(n=>n.id===flowBox.id);selected=new Set([flowBox.id]);inspect();
 const fontTiles=[...document.querySelectorAll('[data-select="fontFamily"] button')];
-assert(fontTiles.length===3&&['Excalifont','Google Sans','Comic Shanns'].every((f,i)=>getComputedStyle(fontTiles[i].querySelector('.font-sample')).fontFamily.includes(f)&&getComputedStyle(fontTiles[i].querySelector('.font-name')).fontFamily.includes(f)),'Font family is three tiles, each sample and name drawn in its own font');
+assert(fontTiles.length===3&&['Excalifont','Inter','Comic Shanns'].every((f,i)=>getComputedStyle(fontTiles[i].querySelector('.font-sample')).fontFamily.includes(f)&&getComputedStyle(fontTiles[i].querySelector('.font-name')).fontFamily.includes(f)),'Font family is three tiles, each sample and name drawn in its own font');
 fontTiles[2].click();
 assert(flowNow().fontFamily==="Comic Shanns"&&fontTiles[2].getAttribute('aria-pressed')==='true','A font tile applies its font and shows as chosen');
 flowNow().fontFamily="Arial";inspect();

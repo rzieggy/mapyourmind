@@ -85,18 +85,31 @@
   // `afterTerminator`; those are dropped on load and never fail it.
   const shapeNames = ["process", "decision", "pill", "note", "circle", "io"];
   const globalDefaultRules = {
-    fontFamily: (v) => ["Excalifont", "Google Sans", "Comic Shanns"].includes(v),
+    fontFamily: (v) => ["Excalifont", "Inter", "Comic Shanns"].includes(v),
     sloppiness: (v) => [0, 1, 2].includes(v),
     sw: (v) => [1, 1.8, 3].includes(v),
     fontSize: (v) => [14, 19, 25, 34, 44].includes(v),
   };
+  // Google Sans was replaced by Inter in 1.38. Rewrites every element and Notes
+  // page that still names it; returns how many it changed.
+  function migrateFonts(state) {
+    let changed = 0;
+    for (const doc of state?.documents || []) {
+      for (const element of [...(doc.canvas?.nodes || []), ...(doc.canvas?.edges || [])])
+        if (element.fontFamily === "Google Sans") { element.fontFamily = "Inter"; changed++; }
+      if (doc.note?.fontFamily === "Google Sans") { doc.note.fontFamily = "Inter"; changed++; }
+    }
+    return changed;
+  }
   function sanitizeDefaults(raw) {
     const out = {},
       global = raw && typeof raw === "object" ? raw.global : null;
     if (!global || typeof global !== "object" || Array.isArray(global)) return out;
     const kept = {};
-    for (const [key, rule] of Object.entries(globalDefaultRules))
-      if (global[key] !== undefined && rule(global[key])) kept[key] = global[key];
+    for (const [key, rule] of Object.entries(globalDefaultRules)) {
+      const value = key === "fontFamily" && global[key] === "Google Sans" ? "Inter" : global[key];
+      if (value !== undefined && rule(value)) kept[key] = value;
+    }
     if (Object.keys(kept).length) out.global = kept;
     return out;
   }
@@ -797,7 +810,7 @@
     const ids = new Set();
     for (const element of [...d.nodes, ...d.edges]) {
       if (!element ||
-          (element.fontFamily !== undefined && !["Excalifont","Google Sans","Comic Shanns","Arial"].includes(element.fontFamily)) ||
+          (element.fontFamily !== undefined && !["Excalifont","Inter","Comic Shanns","Arial","Google Sans"].includes(element.fontFamily)) ||
           (element.strokeStyle !== undefined && !["solid","dashed","dotted"].includes(element.strokeStyle)) ||
           (element.sloppiness !== undefined && ![0,1,2].includes(element.sloppiness))) return false;
     }
@@ -1022,6 +1035,7 @@
     layout,
     mainGap,
     minLinesHeight,
+    migrateFonts,
     connect,
     extend,
     normalizeOrder,

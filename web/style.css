@@ -2,6 +2,9 @@
   font-family: Excalifont;
   src: url(assets/Excalifont-Regular.woff2);
 }
+/* Inter (SIL OFL 1.1, assets/INTER-LICENSE.txt) is the interface font and a diagram/Notes font. */
+@font-face { font-family: "Inter"; src: url(assets/InterVariable.woff2) format("woff2"); font-weight: 100 900; font-style: normal; font-display: block; }
+@font-face { font-family: "Inter"; src: url(assets/InterVariable-Italic.woff2) format("woff2"); font-weight: 100 900; font-style: italic; font-display: block; }
 :root {
   --paper: #ffffff;
   --ink: #3a3a3a;
@@ -1156,7 +1159,7 @@ kbd,
 time,
 .notes-panel,
 .notes-panel * {
-  font-family: "Google Sans", sans-serif !important;
+  font-family: "Inter", sans-serif !important;
 }
 body {
   font-size: 16px;
@@ -1315,7 +1318,7 @@ select {
 }
 
 body * {
-  font-family: "Google Sans", sans-serif !important;
+  font-family: "Inter", sans-serif !important;
 }
 .home-header {
   width: min(980px, 100%);
@@ -1323,7 +1326,7 @@ body * {
 
 /* Compact interface, with handwritten text reserved for the whiteboard. */
 body {
-  font-family: "Google Sans", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 13px;
 }
 button,
@@ -1333,7 +1336,7 @@ select {
   font-size: 13px;
 }
 body * {
-  font-family: "Google Sans", sans-serif !important;
+  font-family: "Inter", sans-serif !important;
 }
 #textEditor,
 #textEditor * {
@@ -1439,9 +1442,9 @@ button.secondary:hover { background:#efeff3; }
 #noteBody li[data-checked="true"]::before { content:'☑'; color:#7272b4; }
 #noteBody a { color:#5f5faa; text-decoration:underline; }
 #noteInspector { position:absolute; right:0; top:60px; bottom:0; width:236px; background:white; border-left:1px solid #e8e8ed; padding:24px 18px; overflow:auto; }
-#noteInspector label { display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin:22px 0; font:13px "Google Sans",sans-serif; color:#73737d; }
-#noteInspector select { width:100%; font:13px "Google Sans",sans-serif; }
-.note-style-hint { color:#9898a0; font:12px/1.6 "Google Sans",sans-serif; }
+#noteInspector label { display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin:22px 0; font:13px "Inter",sans-serif; color:#73737d; }
+#noteInspector select { width:100%; font:13px "Inter",sans-serif; }
+.note-style-hint { color:#9898a0; font:12px/1.6 "Inter",sans-serif; }
 @media(max-width:1100px) { #notePage { padding:26px 24px 80px; margin:16px; } #noteToolbar { gap:0; padding-left:8px; } #noteToolbar button { padding:6px; } }
 @media print {
   @page { size:A4 portrait; margin:18mm; }
@@ -1461,7 +1464,7 @@ button.secondary:hover { background:#efeff3; }
 .stroke-choice-group button { width:36px; height:34px; border-radius:7px; padding:3px; background:#f5f5f8; }
 .stroke-choice-group svg { width:30px; height:24px; }
 .stroke-choice-group button[aria-pressed="true"],#noteToolbar button[aria-pressed="true"] { background:#e5e0ff; color:#494393; }
-.stroke-choice-group .choice-glyph { display:block; line-height:1; font-weight:600; font-family:"Google Sans",sans-serif; }
+.stroke-choice-group .choice-glyph { display:block; line-height:1; font-weight:600; font-family:"Inter",sans-serif; }
 #inspector label.stacked-choice { display:block; }
 #inspector label.stacked-choice .stroke-choice-group { margin-top:6px; justify-content:space-between; }
 #inspector label.stacked-choice .stroke-choice-group button { width:100%; }
@@ -1858,7 +1861,7 @@ select:focus-visible {
   border-radius: 8px;
   background: var(--side-bg);
   color: #fff;
-  font: 500 12.5px "Google Sans", sans-serif;
+  font: 500 12.5px "Inter", sans-serif;
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(20, 24, 36, 0.2);
   opacity: 0;
@@ -1960,7 +1963,7 @@ select:focus-visible {
    --------------------------------------------------------------------------- */
 #inspector {
   padding: 16px 14px 20px;
-  font-family: "Google Sans", sans-serif;
+  font-family: "Inter", sans-serif;
 }
 #inspector .eyebrow {
   font-size: 10.5px;
@@ -2106,7 +2109,7 @@ select:focus-visible {
   border: 0;
   border-radius: 11px;
   box-shadow: 0 14px 34px rgba(10, 14, 24, 0.32), 0 2px 6px rgba(10, 14, 24, 0.2);
-  font-family: "Google Sans", sans-serif;
+  font-family: "Inter", sans-serif;
 }
 #nodeContextMenu {
   width: 210px;

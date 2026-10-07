@@ -59,8 +59,8 @@ assert(noteBody.querySelectorAll('li[data-checked="false"]').length>=2,"Checklis
 const preTab=d().nodes.length;
 noteBody.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",bubbles:true,cancelable:true}));
 assert(d().nodes.length===preTab,"Notes Tab never creates diagram nodes");
-$("noteFont").value="Google Sans";$("noteFont").dispatchEvent(new Event("change"));
-assert(current.note.fontFamily==="Google Sans"&&getComputedStyle($("notePage")).fontFamily.includes("Google Sans"),"Font picker updates whole note");
+$("noteFont").value="Inter";$("noteFont").dispatchEvent(new Event("change"));
+assert(current.note.fontFamily==="Inter"&&getComputedStyle($("notePage")).fontFamily.includes("Inter"),"Font picker updates whole note");
 $("noteFont").value="Comic Shanns";$("noteFont").dispatchEvent(new Event("change"));
 assert(current.note.fontFamily==="Comic Shanns","Code-style font is selectable");
 const safe=sanitizeNote('<p onclick="evil()">Safe<script>evil()</script><img src="https://example.com/track"><a href="javascript:evil()">link</a><span style="position:fixed;background-image:url(https://example.com)">text</span></p>');
@@ -75,7 +75,8 @@ const flow=create("Diagram styles","board");
 assert(!isNotebook()&&notebook.hidden&&$("exportOpen").textContent.includes("PNG"),"Diagram UI and PNG return after switching");
 const n=M.node("flow",100,100,"process","A longer title that wraps across multiple lines in different fonts");
 d().nodes.push(n);selected=new Set([n.id]);autoSize(n);inspect();
-for(const font of documentFonts){styleSelection("fontFamily",font);assert(n.fontFamily===font&&n.h>0,"Diagram font layout: "+font);beginEdit(n);assert(getComputedStyle(richEditor).fontFamily.includes(font),"Active text editor uses "+font);commitEdit();}
+// "Google Sans" is only read from older files (it draws as Inter), so it is not a font to pick.
+for(const font of documentFonts.filter(f=>f!=="Google Sans")){styleSelection("fontFamily",font);assert(n.fontFamily===font&&n.h>0,"Diagram font layout: "+font);beginEdit(n);assert(getComputedStyle(richEditor).fontFamily.includes(font),"Active text editor uses "+font);commitEdit();}
 document.querySelector('[data-select="sloppiness"] button[data-value="0"]').click();
 assert(n.sloppiness===0&&document.querySelector('[data-select="sloppiness"] button').getAttribute("aria-pressed")==="true","Leftmost sloppiness button selects clean geometry");
 styleSelection("strokeStyle","dashed");

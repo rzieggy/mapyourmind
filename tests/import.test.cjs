@@ -61,7 +61,7 @@ test('without placeholders the layout keeps its old symmetric places',()=>{
 });
 test('a new placeholder dresses like its owner, keeps its yellow fill and fits its font',()=>{
   const d=M.blank(),owner=M.node('flow',0,0);d.nodes.push(owner);
-  Object.assign(owner,{sloppiness:2,sw:3.5,stroke:'#c92a2a',strokeStyle:'dashed',fontFamily:'Google Sans',fontSize:44});
+  Object.assign(owner,{sloppiness:2,sw:3.5,stroke:'#c92a2a',strokeStyle:'dashed',fontFamily:'Inter',fontSize:44});
   const label=M.placeholder(d,owner.id);
   for(const key of ['sloppiness','sw','stroke','strokeStyle','fontFamily','fontSize'])assert.equal(label[key],owner[key]);
   assert.equal(label.fill,'#fff0a6');assert.ok(label.h>=Math.ceil(44*1.15));assert.ok(M.validate(d));

@@ -42,7 +42,7 @@ function moveAlignmentGuides(box, others, threshold) {
 function drawDistanceGuides() {
   if (!distanceGuides.length) return;
   ctx.save(); ctx.setLineDash([]); ctx.lineWidth = 1 / view.z;
-  ctx.strokeStyle = "#2474d0"; ctx.font = `${11 / view.z}px "Google Sans"`;
+  ctx.strokeStyle = "#2474d0"; ctx.font = `${11 / view.z}px "Inter"`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (const g of distanceGuides) {
     const x = g.axis === "x" ? (g.from + g.to) / 2 : g.cross;

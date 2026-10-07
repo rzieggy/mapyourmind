@@ -1,5 +1,17 @@
 # mapyourmind project notes
 
+## Inter replaces Google Sans, 2026-10-07
+- Inter 4.1 variable (SIL OFL 1.1, rsms/inter release v4.1, zip sha256 9883fdd4…b11e) is bundled as
+  `web/assets/InterVariable.woff2` + `InterVariable-Italic.woff2` with `INTER-LICENSE.txt`; every Google Sans file, the
+  native `localFonts` loader and the PDF font injection are gone. Inter is the UI font and the third diagram/Notes font.
+- Data: new elements store "Inter". "Google Sans" stays valid (JS and Swift) for older files, draws as Inter, and is
+  rewritten to "Inter" on load (`M.migrateFonts`); a Google Sans preference maps to Inter. Zieggy accepted that builds
+  1.37 and older refuse a library once it holds "Inter" (backups exist).
+- Fixed a startup race the slow font loader had hidden: startup now waits for DOMContentLoaded, so navigation.js always
+  exists before the library opens (browser-mode Back to app failed without it).
+- Counts: node 45 → 46 · integration 492 · schema 11 · navigation 144 · notebook 60 · feedback 116 · Program A 588 ·
+  Program 604 · refinements 117 · perf 11 · browser 42.
+
 ## Folders, 2026-10-07
 - One level of folders in the document sidebar: `state.folders` ({id, name, order, collapsed}) and an optional
   `folderId` per document. No schema bump (Zieggy, 2026-10-05): schema 3 files with or without folders load; a

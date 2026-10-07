@@ -143,7 +143,6 @@ final class BrowserServer {
         case "load": queue.async { do { var result = try self.store.load(); result["clock"] = monotonicClock(); reply(result, nil) } catch { reply(nil, message(error)) } }
         case "loadPreferences": queue.async { reply(self.store.loadPreferences(), nil) }
         case "clock": reply(monotonicClock(), nil)
-        case "localFonts": reply(localFontFaces(), nil)
         default: reply(nil, "Unavailable in the browser.")
         }
     }

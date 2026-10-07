@@ -11,7 +11,7 @@
   if (window.webkit?.messageHandlers?.native) return;
   const token = document.querySelector('meta[name="mym-token"]')?.content || "";
   const session = crypto.randomUUID();
-  const server = new Set(["load", "save", "putImage", "loadPreferences", "savePreferences", "clock", "localFonts"]);
+  const server = new Set(["load", "save", "putImage", "loadPreferences", "savePreferences", "clock"]);
   // Copied elements keep their editable form here, keyed by the plain text that
   // went to the system clipboard, because a page cannot write a custom type.
   let copied = { text: null, editable: "" };
@@ -134,7 +134,7 @@
   // ---- Screens and notices drawn over the app (the Browser Mode design canvas).
   const style = document.createElement("style");
   style.textContent = `
-    .mym-cover{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;font:14px "Google Sans",-apple-system,sans-serif;color:#1c2533}
+    .mym-cover{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;font:14px "Inter",-apple-system,sans-serif;color:#1c2533}
     .mym-cover.dim{background:rgba(21,35,59,.55)}
     .mym-cover.soft{background:rgba(246,248,251,.96)}
     .mym-card{width:400px;padding:26px;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(10,20,40,.35);display:flex;flex-direction:column;gap:12px}
@@ -145,7 +145,7 @@
     .mym-cover button{align-self:flex-end;font:inherit;font-weight:500;color:#fff;background:#2474d0;border:0;border-radius:8px;padding:10px 18px;cursor:pointer}
     .mym-badge{width:52px;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;background:#eaf2fc;color:#2474d0}
     .mym-badge.off{background:#e6e9ee;color:#4a5566}
-    .mym-banner{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:9999;display:flex;gap:12px;align-items:center;padding:10px 16px;background:#fff6df;border:1px solid #f1e0b0;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.08);font:13px "Google Sans",-apple-system,sans-serif;color:#5c4400}
+    .mym-banner{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:9999;display:flex;gap:12px;align-items:center;padding:10px 16px;background:#fff6df;border:1px solid #f1e0b0;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.08);font:13px "Inter",-apple-system,sans-serif;color:#5c4400}
     .mym-banner b{font-weight:600;white-space:nowrap}
     .mym-footer{display:flex;flex-direction:column;gap:3px;padding:10px 12px 4px}
     .mym-footer span{font-size:11px;color:#8fa3c0}
@@ -153,7 +153,7 @@
     .mym-footer button:hover{color:#fff}
     .mym-footer button:focus-visible{outline:2px solid #9cc3f5;outline-offset:2px;border-radius:3px}
     .mym-home-back{margin-left:auto;margin-right:16px}
-    .mym-tip{position:fixed;left:20px;bottom:20px;z-index:9998;width:300px;padding:14px 16px;background:#15233b;color:#d8e2f0;border-radius:10px;box-shadow:0 10px 26px rgba(10,20,40,.25);display:flex;flex-direction:column;gap:8px;font:13px/1.45 "Google Sans",-apple-system,sans-serif}
+    .mym-tip{position:fixed;left:20px;bottom:20px;z-index:9998;width:300px;padding:14px 16px;background:#15233b;color:#d8e2f0;border-radius:10px;box-shadow:0 10px 26px rgba(10,20,40,.25);display:flex;flex-direction:column;gap:8px;font:13px/1.45 "Inter",-apple-system,sans-serif}
     .mym-tip b{color:#fff;font-weight:600}
     .mym-tip button{align-self:flex-end;font:inherit;font-weight:600;font-size:12.5px;color:#fff;background:#2474d0;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}`;
   const check = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';

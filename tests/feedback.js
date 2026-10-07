@@ -268,19 +268,19 @@ d().nodes.push(img);selected=new Set([img.id]);inspect();$("strokeColors").query
   const existing=M.clone(d());
   window.appCommand("settings");await wait(50);
   const groups=[...$("modalBody").querySelectorAll("[data-setting]")].map(g=>g.dataset.setting+":"+[...g.querySelectorAll("button")].map(b=>b.dataset.value).join("|"));
-  assert($("modal").open&&groups.join()==="fontFamily:Excalifont|Google Sans|Comic Shanns,sloppiness:0|1|2,sw:1|1.8|3,fontSize:14|19|25|34|44"&&!$("modalBody").querySelector("select")&&!$("afterTerminatorChoice"),"⌘, offers font, sloppiness, stroke width and font size as tiles, without After Start / end");
+  assert($("modal").open&&groups.join()==="fontFamily:Excalifont|Inter|Comic Shanns,sloppiness:0|1|2,sw:1|1.8|3,fontSize:14|19|25|34|44"&&!$("modalBody").querySelector("select")&&!$("afterTerminatorChoice"),"⌘, offers font, sloppiness, stroke width and font size as tiles, without After Start / end");
   const pressed=()=>[...$("modalBody").querySelectorAll('[aria-pressed="true"]')].map(b=>b.parentElement.dataset.setting+"="+b.dataset.value).join();
   assert(pressed()==="fontFamily=Excalifont,sloppiness=1,sw=1.8,fontSize=19"&&$("resetDefaults").disabled,"Settings start on the built-in look with nothing to reset");
   const click=(key,value)=>$("modalBody").querySelector('[data-setting="'+key+'"] [data-value="'+value+'"]').click();
-  for(const [key,value,stored] of [["fontFamily","Google Sans","Google Sans"],["sloppiness","2",2],["sw","3",3],["fontSize","34",34]]){
+  for(const [key,value,stored] of [["fontFamily","Inter","Inter"],["sloppiness","2",2],["sw","3",3],["fontSize","34",34]]){
     click(key,value);await wait(60);
     assert((await native("loadPreferences")).global?.[key]===stored&&$("modalBody").querySelector('[data-setting="'+key+'"] [aria-pressed="true"]').dataset.value===value,"Choosing "+key+" saves at once and shows as selected");
   }
   assert(!$("resetDefaults").disabled&&M.same(d(),existing),"Existing shapes and connectors keep their look");
   await native("snapshot",{name:"settings"});
   const fresh=M.node("flow",0,0),text=M.node("text",0,0),root=M.node("mind",0,0),freshLink=M.connect(d(),box.id,other.id);
-  assert([fresh,text,root].every(n=>n.fontFamily==="Google Sans"&&n.sloppiness===2&&n.sw===3&&n.fontSize===34),"New shapes, text and mind-map roots use the settings");
-  assert(freshLink.fontFamily==="Google Sans"&&freshLink.sloppiness===2&&freshLink.sw===3&&freshLink.fontSize===undefined,"New connectors take the font for their label, sloppiness and stroke width");
+  assert([fresh,text,root].every(n=>n.fontFamily==="Inter"&&n.sloppiness===2&&n.sw===3&&n.fontSize===34),"New shapes, text and mind-map roots use the settings");
+  assert(freshLink.fontFamily==="Inter"&&freshLink.sloppiness===2&&freshLink.sw===3&&freshLink.fontSize===undefined,"New connectors take the font for their label, sloppiness and stroke width");
   M.remove(d(),[freshLink.id]);
   await saveDefaults({...M.getDefaults(),afterTerminator:"decision"});
   const start=M.node("flow",3000,3300,"pill","Start");d().nodes.push(start);

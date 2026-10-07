@@ -1,9 +1,10 @@
 "use strict";
-const documentFonts = ["Excalifont", "Google Sans", "Comic Shanns", "Arial"];
-let googleSansAvailable = false;
+// "Google Sans" was the sans-serif font before 1.38; files may still carry it, and
+// it reads as Inter, the font that replaced it. New elements only ever get "Inter".
+const documentFonts = ["Excalifont", "Inter", "Comic Shanns", "Arial", "Google Sans"];
 function elementFont(element) {
   const font = documentFonts.includes(element?.fontFamily) ? element.fontFamily : "Excalifont";
-  return font === 'Google Sans' ? (googleSansAvailable ? '"Google Sans", Arial, sans-serif' : 'Arial, sans-serif') : '"' + font + '", Arial, sans-serif';
+  return '"' + (font === 'Google Sans' ? 'Inter' : font) + '", Arial, sans-serif';
 }
 function isNotebook() { return current?.mode === "notes"; }
 function blankNote() { return { html: "<p><br></p>", fontFamily: "Excalifont", fontSize: 19, textColor: "#1b1b1f" }; }
