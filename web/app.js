@@ -3897,7 +3897,8 @@ setInterval(async () => {
         }
     if (
       ![1, 2, 3].includes(state.schema) ||
-      !state.documents.every(validDocument)
+      !state.documents.every(validDocument) ||
+      !validFolders(state)
     )
       throw Error("Invalid document. Your original data has been preserved.");
     loaded = true;

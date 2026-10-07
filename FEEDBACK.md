@@ -6,12 +6,12 @@ Zieggy's feedback from real use, waiting for a fix. Newest at the bottom. Move a
 
 | # | Date | Area | Feedback | Expected | Notes |
 | --- | --- | --- | --- | --- | --- |
-| F19 | 2026-10-06 | Sidebar | Renaming a document needs the right-click menu. | Double-click a document name in the left sidebar to rename it in place (Enter saves, Esc cancels, click elsewhere saves), like Finder. | Already part of the folders run (scheduled 2026-10-06 23:00), which covers double-click rename for documents and folders. Close this row together with the folders work. |
 
 ## Done
 
 | # | Fixed in | Note |
 | --- | --- | --- |
+| F19 | 2026-10-07 | Folders in the sidebar (new folder, drag in/out, Move to folder, fold, delete keeps documents) and double-click rename for documents and folders. |
 | F21 | 2026-10-06 | Tab/Enter from an older (one-line) rectangle now makes a new three-line rectangle; the old one keeps its size. A rectangle growing past three lines keeps growing up and down evenly so Tab chains stay straight (Zieggy, 2026-10-06). |
 | F20 | 2026-10-06 | Bug: typing in a new mind-map child (or any text) and deleting it all made the field two lines tall. WebKit leaves a placeholder `<br>` in an emptied contenteditable, which was read as a newline. `placeholderBreak` in `web/rich-text.js` now skips it when reading the editor. Covered for mind-map text, rectangles and free text. |
 | F14 | `b050301` (2026-10-06) | No columns: each mind-map child starts 92px after its own parent's right edge (80px below its bottom in vertical maps, plus room for its row's tallest placeholder), so connectors have one length and short branches stay compact. Fit-width maximum raised to 440px text / 480px roots (about 45 characters). Existing maps reflow the next time they are edited. On a copy of the library 7 of 21 mind maps change; the mean visible connector gap drops from 99px (max 345) to 91px (max 110). |

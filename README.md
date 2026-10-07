@@ -45,6 +45,10 @@ The **Pointer** (left tool rail, or **P** with nothing selected) is for presenti
 red trail or circle; it fades within 800ms and never becomes part of your diagram or export. While it is on nothing can
 be selected or edited, but zoom, Space-drag pan, Find and folding branches still work; folds made then are temporary.
 **Esc** or **P** goes back to Select. Settings is at the bottom of the document sidebar, above Trash.
+
+**Folders:** the folder button beside **+** at the top of the sidebar makes a folder. Drag a document onto a folder to
+put it in, or right-click a document and pick a folder under **Move to folder**. Click a folder to fold it. Double-click
+a folder or document name to rename it in place. Deleting a folder keeps its documents; they just leave the folder.
 The Command K action palette is disabled; Notes still uses Command K for links.
 
 Board PDFs use a high-resolution (3×) image on a page sized to your content. Choose the whole board or current

@@ -276,5 +276,16 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   const free=M.node("text",5000,5800);d().nodes.push(free);autoSize(free);const freeH=free.h;
   typeAndClear(free);assert(free.text===""&&free.h===freeH,"Clearing free text keeps it one line high");commitEdit();
 }
+{
+  setPointer(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);
+  const x1=M.node("flow",6000,6000,"process","One"),x2=M.node("flow",6400,6000,"process","Two");d().nodes.push(x1,x2);render();
+  const cr=canvas.getBoundingClientRect();
+  canvas.dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true,clientX:cr.left+5,clientY:cr.top+cr.height-5}));
+  const labels=[...contextMenu.querySelectorAll("button")].map(b=>b.textContent);
+  assert(!contextMenu.hidden&&["Paste","Fit diagram","Select all"].every(l=>labels.some(t=>t.startsWith(l.split(" ")[0]))),"Right-clicking empty canvas offers Paste, Fit and Select all");
+  [...contextMenu.querySelectorAll("button")].find(b=>b.textContent==="Select all").click();await wait(50);
+  assert(selected.has(x1.id)&&selected.has(x2.id)&&contextMenu.hidden,"Select all from the canvas menu selects everything");
+  selected.clear();
+}
 assert(!errors.length,"No uncaught errors through editor and presentation interactions");
 return results;

@@ -15,7 +15,7 @@ function syncPresentationUI() {
     b.classList.toggle("active", viewOnly ? b.dataset.tool === "pointer" : b.dataset.tool === tool);
   $("toolbar").querySelector('[data-tool="pointer"]').setAttribute("aria-pressed", String(viewOnly));
   $("laserCanvas").hidden = !viewOnly || !laserActive;
-  $("sidebarNewDocument").disabled = viewOnly || documentSwitchPending;
+  $("sidebarNewDocument").disabled = $("sidebarNewFolder").disabled = viewOnly || documentSwitchPending;
   $("openSettings").disabled = viewOnly;
   $("contextHint").textContent = viewOnly
     ? "Pointer · Hold and drag to draw · Space-drag to pan · Esc or P to stop"

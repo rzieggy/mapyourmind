@@ -7,6 +7,17 @@ function elementFont(element) {
 }
 function isNotebook() { return current?.mode === "notes"; }
 function blankNote() { return { html: "<p><br></p>", fontFamily: "Excalifont", fontSize: 19, textColor: "#1b1b1f" }; }
+// Folders are optional. A folderId that names no folder reads as loose, so it
+// is only checked for its type here.
+function validFolders(state) {
+  if (state.folders === undefined) return true;
+  if (!Array.isArray(state.folders)) return false;
+  const ids = new Set();
+  return state.folders.every((f) => f && typeof f.id === "string" && !ids.has(f.id) && ids.add(f.id) &&
+    typeof f.name === "string" && f.name.length <= 200 && Number.isFinite(f.order) &&
+    (f.collapsed === undefined || typeof f.collapsed === "boolean")) &&
+    state.documents.every((doc) => doc.folderId === undefined || typeof doc.folderId === "string");
+}
 function validDocument(doc) {
   if (!FlowModel.validate(doc.canvas)) return false;
   if (doc.mode === "notes") {

@@ -52,8 +52,19 @@ final class LocalStore {
     }
     func valid(_ data: Data) -> Bool {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], [1, 2, 3].contains(object["schema"] as? Int ?? 0), let docs = object["documents"] as? [[String: Any]] else { return false }
+        // Folders are optional; a folderId naming no folder reads as loose in the app.
+        if let value = object["folders"] {
+            guard let folders = value as? [[String: Any]] else { return false }
+            var folderIDs = Set<String>()
+            for folder in folders {
+                guard let id = folder["id"] as? String, folderIDs.insert(id).inserted, let name = folder["name"] as? String, name.count <= 200,
+                      let order = folder["order"] as? Double, order.isFinite else { return false }
+                if let collapsed = folder["collapsed"], !(collapsed is Bool) { return false }
+            }
+        }
         var documentIDs = Set<String>()
         for doc in docs {
+            if let folder = doc["folderId"], !(folder is String) { return false }
             guard let id = doc["id"] as? String, documentIDs.insert(id).inserted, doc["title"] is String, let canvas = doc["canvas"] as? [String: Any], let nodes = canvas["nodes"] as? [[String: Any]], let edges = canvas["edges"] as? [[String: Any]] else { return false }
             if doc["mode"] as? String == "notes" {
                 guard let note = doc["note"] as? [String: Any], let html = note["html"] as? String, html.utf16.count <= 2_000_000,
@@ -734,6 +745,21 @@ if CommandLine.arguments.contains("--storage-test") {
         var malformed=schema3;malformed["documents"]=[["id":"bad","title":"Invalid image","canvas":["nodes":[["id":"bad-image","kind":"image","text":"","x":0,"y":0,"w":80,"h":80,"imageRef":"../documents"]],"edges":[]]]]
         var badRejected=false;do{try store.save(malformed)}catch{badRejected=true}
         let afterRejected=try Data(contentsOf:store.primary);precondition(badRejected && afterRejected==intact)
+        // Folders: optional; a folderId naming no folder is accepted (the app reads it as loose); bad shapes are refused.
+        var foldered=schema3;foldered["folders"]=[["id":"f1","name":"Work","order":0,"collapsed":true],["id":"f2","name":"Home","order":1]]
+        var folderedDocs=foldered["documents"] as! [[String:Any]];folderedDocs[0]["folderId"]="f1";folderedDocs[1]["folderId"]="missing";foldered["documents"]=folderedDocs
+        try store.save(foldered)
+        let loadedFolders=try store.load()["state"] as! [String:Any]
+        precondition((loadedFolders["folders"] as? [[String:Any]])?.count==2 && (loadedFolders["documents"] as! [[String:Any]])[0]["folderId"] as? String=="f1")
+        let withFolders=try Data(contentsOf:store.primary)
+        for bad:[String:Any] in [["folders":"nope"],["folders":[["id":"x","name":"A","order":0],["id":"x","name":"B","order":1]]],["folders":[["id":"x","order":0]]],["folders":[["id":"x","name":"A","order":0,"collapsed":"yes"]]]] {
+            var state=foldered;for (k,v) in bad {state[k]=v}
+            var refused=false;do{try store.save(state)}catch{refused=true}
+            let unchanged=try Data(contentsOf:store.primary);precondition(refused && unchanged==withFolders)
+        }
+        var badFolderId=foldered;var badDocs=badFolderId["documents"] as! [[String:Any]];badDocs[0]["folderId"]=7;badFolderId["documents"]=badDocs
+        var badIdRefused=false;do{try store.save(badFolderId)}catch{badIdRefused=true};precondition(badIdRefused)
+        try store.save(schema3)
         let preferencesFile=store.directory.appendingPathComponent("preferences.json")
         try Data(##"{"process":{"fill":"#123456"},"mindRoot":{"fontFamily":"Google Sans"},"connector":{"sw":3},"afterTerminator":"decision"}"##.utf8).write(to:preferencesFile)
         precondition(store.loadPreferences().isEmpty)
@@ -744,7 +770,7 @@ if CommandLine.arguments.contains("--storage-test") {
         try store.savePreferences(["global":["fontFamily":"Comic Shanns","sloppiness":0,"sw":1.8,"fontSize":44],"process":["fill":"#123456"]])
         let savedPreferences=store.loadPreferences()["global"] as? [String:Any]
         precondition(savedPreferences?.count==4 && savedPreferences?["fontFamily"] as? String=="Comic Shanns" && savedPreferences?["sw"] as? Double==1.8 && store.loadPreferences()["process"]==nil)
-        print("PASS native storage: schema 1/2/3, referenced images, deduplication, stickers, Notes, preferences, path traversal rejection, atomic recovery, future schema protection, single-writer lock")
+        print("PASS native storage: schema 1/2/3, referenced images, deduplication, stickers, Notes, folders, preferences, path traversal rejection, atomic recovery, future schema protection, single-writer lock")
     } catch { print("FAIL: \(error)"); exit(1) }
 } else if CommandLine.arguments.contains("--serve") {
     serveBrowser()

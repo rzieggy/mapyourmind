@@ -1,5 +1,19 @@
 # mapyourmind project notes
 
+## Folders, 2026-10-07
+- One level of folders in the document sidebar: `state.folders` ({id, name, order, collapsed}) and an optional
+  `folderId` per document. No schema bump (Zieggy, 2026-10-05): schema 3 files with or without folders load; a
+  folderId naming no folder reads as loose. JS (`validFolders`) and Swift `valid` refuse malformed folders. Older
+  builds keep both fields on save because the whole state object is saved (checked by reading `persist`, not by
+  running an old build).
+- New folder button beside +, new folder at the top in rename mode; drag a document onto a folder (highlight) to move it
+  in; dropping it last makes it loose; Move to folder / No folder in the document menu; click folds; double-click renames
+  folders and documents in place (Enter saves, Esc cancels, blur saves); Delete folder moves documents out and asks only
+  when it holds live documents; Trash/restore keep the folder.
+- Empty-canvas right-click (Paste, Fit, Select all) already existed since the 2026-10-01 refinements; now tested.
+- Counts: node 45 · integration 492 · schema 11 · navigation 122 → 144 · notebook 60 · feedback 116 · Program A 588 ·
+  Program 604 · refinements 115 → 117 · perf 11 · browser 42; storage test adds folders fixtures. No flakes.
+
 ## Mind-map spacing and text boxes, 2026-10-06 (FEEDBACK F14–F18; override older decisions below)
 - No columns: a mind-map child starts `M.mainGap` (92px horizontal / 80px vertical) after its own parent; vertical
   siblings share a row below room for their tallest placeholder. Fit-width max 440px text / 480px roots (was 320/360).

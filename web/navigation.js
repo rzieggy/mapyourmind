@@ -53,8 +53,13 @@ function documentRow(doc, trashed) {
     trashed ? "trash" : doc.mode === "notes" ? "note" : "board",
   );
   const name = document.createElement("span");
+  name.className = "sidebar-name";
   name.textContent = doc.title;
   button.append(name);
+  if (!trashed && folderOf(doc)) {
+    button.dataset.folderId = folderOf(doc);
+    button.classList.add("in-folder");
+  }
   if (!trashed && current?.id === doc.id)
     button.setAttribute("aria-current", "page");
   button.disabled = documentSwitchPending;
@@ -66,12 +71,60 @@ function documentRow(doc, trashed) {
   button.onpointerdown = (e) => beginSidebarReorder(e, doc.id);
   return button;
 }
+// Folders are one level deep. The library keeps them in `state.folders`, and a
+// document points at one with `folderId`; a folderId whose folder is gone reads
+// as loose, so a damaged or older file never hides a document.
+function sortedFolders() {
+  return [...(state.folders || [])].sort((a, b) => a.order - b.order);
+}
+function folderOf(doc) {
+  return doc.folderId && (state.folders || []).some((f) => f.id === doc.folderId) ? doc.folderId : null;
+}
+function folderRow(folder, count) {
+  const row = document.createElement("button");
+  row.className = "sidebar-folder";
+  row.dataset.folderId = folder.id;
+  row.title = folder.name;
+  row.setAttribute("aria-expanded", String(!folder.collapsed));
+  row.innerHTML = icon("chevron") + icon("folder");
+  const name = document.createElement("span");
+  name.className = "sidebar-name";
+  name.textContent = folder.name;
+  const total = document.createElement("span");
+  total.className = "sidebar-count";
+  total.textContent = count || "";
+  row.append(name, total);
+  row.disabled = documentSwitchPending;
+  row.onclick = () => {
+    if (sidebarTapTwice("folder", folder.id)) {
+      // The first press of a double-click folded it; undo that, then rename.
+      folder.collapsed = !folder.collapsed;
+      changed();
+      renderDocumentSidebar();
+      return startSidebarRename("folder", folder.id);
+    }
+    folder.collapsed = !folder.collapsed;
+    changed();
+    renderDocumentSidebar();
+  };
+  row.oncontextmenu = (e) => {
+    e.preventDefault();
+    showFolderMenu(e, folder);
+  };
+  return row;
+}
 function renderDocumentSidebar() {
+  if (sidebarRename) return;
   applySidebarWidth();
   const list = $("sidebarDocumentList");
   list.replaceChildren();
   const documents = sortedDocuments();
-  for (const doc of documents) list.append(documentRow(doc, false));
+  for (const folder of sortedFolders()) {
+    const inside = documents.filter((doc) => folderOf(doc) === folder.id);
+    list.append(folderRow(folder, inside.length));
+    if (!folder.collapsed) for (const doc of inside) list.append(documentRow(doc, false));
+  }
+  for (const doc of documents.filter((doc) => !folderOf(doc))) list.append(documentRow(doc, false));
   if (!documents.length) {
     const empty = document.createElement("p");
     empty.className = "sidebar-empty";
@@ -108,6 +161,16 @@ function beginSidebarReorder(e, id) {
       row.classList.add("dragging");
       list.classList.add("reordering");
     }
+    // Over the middle of a folder row the document goes into that folder.
+    let target = null;
+    for (const folder of list.querySelectorAll(".sidebar-folder")) {
+      const box = folder.getBoundingClientRect();
+      const over = move.clientY > box.top + box.height * 0.2 && move.clientY < box.bottom - box.height * 0.2;
+      folder.classList.toggle("drop-target", over);
+      if (over) target = folder.dataset.folderId;
+    }
+    sidebarReorder.folder = target;
+    if (target) return;
     const rows = [...list.querySelectorAll(".sidebar-document")];
     for (const other of rows) {
       if (other === row) continue;
@@ -120,24 +183,40 @@ function beginSidebarReorder(e, id) {
     if (list.lastElementChild !== row) list.append(row);
   };
   row.onpointerup = () => {
-    const moved = sidebarReorder?.active;
+    const moved = sidebarReorder?.active,
+      into = sidebarReorder?.folder;
     row.classList.remove("dragging");
     list.classList.remove("reordering");
+    for (const folder of list.querySelectorAll(".drop-target")) folder.classList.remove("drop-target");
     row.onpointermove = row.onpointerup = row.onpointercancel = null;
     sidebarReorder = null;
     if (!moved) {
-      switchSidebarDocument(id);
+      if (sidebarTapTwice("document", id)) startSidebarRename("document", id);
+      else switchSidebarDocument(id);
       return;
     }
-    normalizeDocumentOrder(
-      [...list.querySelectorAll(".sidebar-document")].map(
-        (a) => a.dataset.documentId,
-      ),
-    );
+    const doc = state.documents.find((a) => a.id === id);
+    if (into) moveToFolder(doc, into);
+    else {
+      // A dropped row joins whatever it now sits under: a folder row or a
+      // document in a folder. Dropped among loose documents, or last, it is loose.
+      const above = row.previousElementSibling;
+      const folder = row.nextElementSibling
+        ? above?.dataset.folderId || null
+        : null;
+      if (folder) doc.folderId = folder;
+      else delete doc.folderId;
+      normalizeDocumentOrder(
+        [...list.querySelectorAll(".sidebar-document")].map(
+          (a) => a.dataset.documentId,
+        ),
+      );
+    }
     changed();
     renderDocumentSidebar();
   };
   row.onpointercancel = () => {
+    for (const folder of list.querySelectorAll(".drop-target")) folder.classList.remove("drop-target");
     row.classList.remove("dragging");
     list.classList.remove("reordering");
     row.onpointermove = row.onpointerup = row.onpointercancel = null;
@@ -150,8 +229,16 @@ function showDocumentMenu(e, doc, trashed) {
   const menu = $("nodeContextMenu");
   menu.innerHTML = trashed
     ? '<button role="menuitem" data-document-action="restore">Restore</button><button role="menuitem" data-document-action="erase">Delete permanently</button>'
-    : '<button role="menuitem" data-document-action="rename">Rename</button><button role="menuitem" data-document-action="duplicate">Duplicate</button><button role="menuitem" data-document-action="trash">Move to Trash</button><button role="menuitem" data-document-action="new">New document</button>';
+    : '<button role="menuitem" data-document-action="rename">Rename</button><button role="menuitem" data-document-action="duplicate">Duplicate</button><button role="menuitem" data-document-action="trash">Move to Trash</button><button role="menuitem" data-document-action="new">New document</button>' +
+      folderChoices(doc);
   placeContextMenu(e);
+  for (const button of menu.querySelectorAll("[data-move-folder]"))
+    button.onclick = () => {
+      closeContextMenu();
+      moveToFolder(doc, button.dataset.moveFolder || null);
+      changed();
+      renderDocumentSidebar();
+    };
   for (const button of menu.querySelectorAll("[data-document-action]"))
     button.onclick = async () => {
       closeContextMenu();
@@ -166,6 +253,113 @@ function showDocumentMenu(e, doc, trashed) {
       }
     };
   menu.querySelector("button").focus();
+}
+// "Move to folder" lists every folder the document is not in, plus No folder.
+function folderChoices(doc) {
+  const here = folderOf(doc),
+    choices = sortedFolders().filter((f) => f.id !== here).map((f) => `<button role="menuitem" data-move-folder="${f.id}">${esc(f.name)}</button>`);
+  if (here) choices.push('<button role="menuitem" data-move-folder="">No folder</button>');
+  return choices.length ? '<div class="menu-label">Move to folder</div>' + choices.join("") : "";
+}
+function moveToFolder(doc, folderId) {
+  if (!doc) return;
+  if (folderId) doc.folderId = folderId;
+  else delete doc.folderId;
+  // It lands last in its new place.
+  const orders = state.documents.filter((a) => a !== doc && Number.isFinite(a.order)).map((a) => a.order);
+  if (orders.length) doc.order = Math.max(...orders) + 1;
+}
+function newFolder() {
+  if (viewOnly || documentSwitchPending) return;
+  state.folders ||= [];
+  const folder = {
+    id: M.uid(),
+    name: "Untitled folder",
+    order: state.folders.length ? Math.min(...state.folders.map((f) => f.order)) - 1 : 0,
+    collapsed: false,
+  };
+  state.folders.push(folder);
+  changed();
+  renderDocumentSidebar();
+  startSidebarRename("folder", folder.id);
+}
+// Deleting a folder never deletes documents: they become loose again.
+function deleteFolder(folder) {
+  const inside = state.documents.filter((doc) => doc.folderId === folder.id);
+  const remove = () => {
+    for (const doc of inside) delete doc.folderId;
+    state.folders = (state.folders || []).filter((f) => f.id !== folder.id);
+    changed();
+    renderDocumentSidebar();
+  };
+  const live = inside.filter((doc) => !doc.trashedAt).length;
+  if (live) confirmAction("Delete folder?", `“${folder.name}” will be removed. Its ${live} document${live === 1 ? "" : "s"} will stay, outside any folder.`, remove);
+  else remove();
+}
+function showFolderMenu(e, folder) {
+  if (viewOnly) return;
+  const menu = $("nodeContextMenu");
+  menu.innerHTML = '<button role="menuitem" data-folder-action="rename">Rename</button><button role="menuitem" data-folder-action="delete">Delete folder</button>';
+  placeContextMenu(e);
+  menu.querySelector('[data-folder-action="rename"]').onclick = () => { closeContextMenu(); startSidebarRename("folder", folder.id); };
+  menu.querySelector('[data-folder-action="delete"]').onclick = () => { closeContextMenu(); deleteFolder(folder); };
+  menu.querySelector("button").focus();
+}
+// Two presses on the same row within a short time rename it in place.
+let sidebarTap = null;
+function sidebarTapTwice(kind, id) {
+  const now = performance.now(),
+    twice = sidebarTap?.kind === kind && sidebarTap.id === id && now - sidebarTap.time < 450;
+  sidebarTap = twice ? null : { kind, id, time: now };
+  return twice;
+}
+let sidebarRename = null;
+function startSidebarRename(kind, id) {
+  if (viewOnly) return;
+  const item = kind === "folder" ? (state.folders || []).find((f) => f.id === id) : state.documents.find((d) => d.id === id && !d.trashedAt);
+  const row = $("sidebarDocumentList").querySelector(kind === "folder" ? `.sidebar-folder[data-folder-id="${id}"]` : `.sidebar-document[data-document-id="${id}"]`);
+  if (!item || !row) return;
+  // A text field cannot live inside a button, so the row is swapped for a
+  // look-alike holding the field until Enter, Escape or a click elsewhere.
+  const editor = document.createElement("div");
+  editor.className = row.className + " renaming";
+  editor.innerHTML = kind === "folder" ? icon("chevron") + icon("folder") : row.querySelector("svg").outerHTML;
+  const input = document.createElement("input");
+  input.className = "sidebar-rename";
+  input.value = kind === "folder" ? item.name : item.title;
+  input.setAttribute("aria-label", kind === "folder" ? "Folder name" : "Document name");
+  editor.append(input);
+  row.replaceWith(editor);
+  sidebarRename = { kind, id };
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    sidebarRename = null;
+    const value = input.value.trim().slice(0, 200);
+    if (save && value && value !== (kind === "folder" ? item.name : item.title)) {
+      if (kind === "folder") {
+        item.name = value;
+        changed();
+      } else if (current?.id === id) {
+        renameCurrent(value);
+        return;
+      } else {
+        item.title = uniqueName(value, id);
+        changed();
+      }
+    }
+    renderDocumentSidebar();
+  };
+  input.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.isComposing) return;
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+  input.onblur = () => finish(true);
 }
 function syncDocumentSidebar() {
   $("documentSidebar").hidden = !documentSidebarOpen;
@@ -216,6 +410,7 @@ $("sidebarTrashToggle").onclick = () => {
   $("sidebarTrashList").hidden = !open;
   $("sidebarTrashToggle").setAttribute("aria-expanded", String(open));
 };
+$("sidebarNewFolder").onclick = () => newFolder();
 $("sidebarNewDocument").onclick = async () => {
   if (documentSwitchPending) return;
   try { await window.flushSave(); newDoc(); }

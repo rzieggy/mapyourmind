@@ -350,6 +350,84 @@ assert(pdfFailure&&!boardPDFExporting&&!$('modal').open,'A native PDF failure cl
 let rejectedPDF=false;try{await native('boardPDF',{data:'bad image',width:100,height:100,test:true});}catch(e){rejectedPDF=true;}
 assert(rejectedPDF,'Native PDF bridge rejects invalid raster data');
 await native('log',{message:'Phase 4a PDF fixtures: '+boardWhitePDF.path+' | '+boardTransparentPDF.path+' | '+selectionPDF.path+' | '+connectorPDF.path});
+// Folders in the sidebar.
+{
+  if (viewOnly) setPointer(false);
+  await window.flushSave();
+  const list=$('sidebarDocumentList');
+  const folderRowFor=id=>list.querySelector(`.sidebar-folder[data-folder-id="${id}"]`);
+  const a=createDoc('Folder test A'), b=createDoc('Folder test B'), c=createDoc('Folder test C');
+  const before=(state.folders||[]).length;
+  $('sidebarNewFolder').click();
+  const folder=state.folders.at(-1);
+  const editor=list.querySelector('.sidebar-folder.renaming input');
+  assert(state.folders.length===before+1&&folder.name==='Untitled folder'&&!!editor&&document.activeElement===editor,'New folder appears in rename mode');
+  assert(list.querySelector('.sidebar-folder.renaming')===list.firstElementChild,'A new folder sits at the top');
+  editor.value='Projects';editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert(folder.name==='Projects'&&folderRowFor(folder.id).textContent.includes('Projects'),'Enter saves the folder name');
+  // Drag a document onto the folder.
+  const rowA=rowFor(a.id),fbox=folderRowFor(folder.id).getBoundingClientRect(),ay=rowA.getBoundingClientRect().top+10;
+  pointerOn(rowA,'pointerdown',ay);pointerOn(rowA,'pointermove',ay-30);pointerOn(rowA,'pointermove',fbox.top+fbox.height/2);
+  assert(folderRowFor(folder.id).classList.contains('drop-target'),'The folder highlights while a document is dragged over it');
+  pointerOn(rowA,'pointerup',fbox.top+fbox.height/2);
+  assert(a.folderId===folder.id&&rowFor(a.id).classList.contains('in-folder')&&folderRowFor(folder.id).querySelector('.sidebar-count').textContent==='1','Dropping a document on a folder moves it in and updates the count');
+  // Move by menu.
+  showDocumentMenu(new MouseEvent('contextmenu',{clientX:40,clientY:200}),b,false);
+  const choice=$('nodeContextMenu').querySelector(`[data-move-folder="${folder.id}"]`);
+  assert(!!choice&&!!$('nodeContextMenu').querySelector('.menu-label'),'Right-clicking a document offers Move to folder');
+  choice.click();
+  assert(b.folderId===folder.id,'Move to folder from the menu');
+  showDocumentMenu(new MouseEvent('contextmenu',{clientX:40,clientY:200}),b,false);
+  $('nodeContextMenu').querySelector('[data-move-folder=""]').click();
+  assert(b.folderId===undefined&&!rowFor(b.id).classList.contains('in-folder'),'No folder makes a document loose again');
+  // Drag out: drop it last, among the loose documents.
+  const rowA2=rowFor(a.id),ay2=rowA2.getBoundingClientRect().top+10,lastBox=list.lastElementChild.getBoundingClientRect();
+  pointerOn(rowA2,'pointerdown',ay2);pointerOn(rowA2,'pointermove',ay2+30);pointerOn(rowA2,'pointermove',lastBox.bottom+40);pointerOn(rowA2,'pointerup',lastBox.bottom+40);
+  assert(a.folderId===undefined&&list.lastElementChild.dataset.documentId===a.id,'Dragging a document out of a folder to the end makes it loose');
+  moveToFolder(a,folder.id);moveToFolder(c,folder.id);changed();renderDocumentSidebar();
+  await native('snapshot',{name:'sidebar-folders'});
+  // Collapse.
+  folderRowFor(folder.id).click();
+  assert(folder.collapsed&&!rowFor(a.id)&&folderRowFor(folder.id).getAttribute('aria-expanded')==='false','Clicking a folder collapses it and hides its documents');
+  await new Promise(r=>setTimeout(r,500));
+  folderRowFor(folder.id).click();
+  assert(!folder.collapsed&&!!rowFor(a.id),'Clicking again opens it');
+  await new Promise(r=>setTimeout(r,500));
+  // Double-click rename on a folder and a document.
+  folderRowFor(folder.id).click();folderRowFor(folder.id).click();
+  const folderInput=list.querySelector('.sidebar-folder.renaming input');
+  assert(!!folderInput&&!folder.collapsed,'Double-clicking a folder renames it in place');
+  folderInput.value='Ignored';folderInput.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert(folder.name==='Projects'&&!list.querySelector('.renaming'),'Escape cancels a rename');
+  await new Promise(r=>setTimeout(r,500));
+  const tapRow=()=>{const r=rowFor(c.id),y=r.getBoundingClientRect().top+10;pointerOn(r,'pointerdown',y);pointerOn(r,'pointerup',y);};
+  tapRow();for(let i=0;i<100&&(documentSwitchPending||current.id!==c.id);i++)await new Promise(r=>setTimeout(r,10));
+  tapRow();
+  const docInput=list.querySelector('.sidebar-document.renaming input');
+  assert(!!docInput&&docInput.value==='Folder test C','Double-clicking a document name renames it in place');
+  docInput.value='Renamed in place';docInput.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert(c.title==='Renamed in place'&&$('docTitle').textContent==='Renamed in place','The new name reaches the sidebar and the open document');
+  // Trash and restore keep the folder.
+  await docAction('trash',a.id);await docAction('restore',a.id);
+  assert(a.folderId===folder.id&&rowFor(a.id).classList.contains('in-folder'),'Trash and restore keep the folder');
+  // Delete moves documents out, after asking.
+  showFolderMenu(new MouseEvent('contextmenu',{clientX:40,clientY:120}),folder);
+  $('nodeContextMenu').querySelector('[data-folder-action="delete"]').click();
+  assert($('modal').open&&state.folders.includes(folder),'Deleting a folder with documents asks first');
+  $('confirmAction').click();
+  assert(!state.folders.includes(folder)&&a.folderId===undefined&&c.folderId===undefined&&state.documents.includes(a)&&!a.trashedAt,'Deleting a folder keeps its documents, loose');
+  $('sidebarNewFolder').click();const empty=state.folders.at(-1);list.querySelector('.renaming input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  showFolderMenu(new MouseEvent('contextmenu',{clientX:40,clientY:120}),empty);$('nodeContextMenu').querySelector('[data-folder-action="delete"]').click();
+  assert(!$('modal').open&&!state.folders.includes(empty),'An empty folder is deleted without asking');
+  // Persistence.
+  $('sidebarNewFolder').click();const kept=state.folders.at(-1);const kin=list.querySelector('.renaming input');kin.value='Kept';kin.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  moveToFolder(b,kept.id);kept.collapsed=true;changed();await window.flushSave();
+  const stored=(await native('load')).state;
+  assert(stored.folders.some(f=>f.id===kept.id&&f.name==='Kept'&&f.collapsed===true)&&stored.documents.find(d=>d.id===b.id).folderId===kept.id&&validFolders(stored),'Folders and folder membership survive a save and reload');
+  const orphan=M.clone(state);orphan.documents.find(d=>d.id===b.id).folderId='gone';
+  assert(validFolders(orphan)&&folderOf({folderId:'gone'})===null,'A folderId naming no folder reads as loose, never as an error');
+  assert(!validFolders({documents:[],folders:[{id:'x',name:'A',order:0},{id:'x',name:'B',order:1}]})&&!validFolders({documents:[],folders:'no'}),'Malformed folders are refused');
+}
 assert(!errors.length,'Phase 4a has no uncaught browser errors');
 {
   const label=$('appVersion'),box=label.getBoundingClientRect(),trash=$('sidebarTrashToggle').getBoundingClientRect();
