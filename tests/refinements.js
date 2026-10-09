@@ -287,5 +287,24 @@ openDoc(boardId);assert(d().nodes.find(n=>n.id===root.id).collapsed,"Reopening t
   assert(selected.has(x1.id)&&selected.has(x2.id)&&contextMenu.hidden,"Select all from the canvas menu selects everything");
   selected.clear();
 }
+{
+  // Giving a text-style mind-map node a fill turns it into a box: its insets
+  // change, so its size must be measured again or the text wraps and spills.
+  setPointer(false);openDoc(boardId);current.canvas=M.blank();history=new M.History();zoom(1);
+  const root=M.node("mind",7000,7000,"process","Root");d().nodes.push(root);autoSize(root);
+  const kids=["login","tarik poket","using CPN before login"].map(t=>{const k=M.extend(d(),root.id,true);k.text=t;autoSize(k);return k;});
+  M.layout(d());const lines=kids.map(k=>textLines(ctx,k).length);
+  selected=new Set(kids.map(k=>k.id));styleSelection("fill","#fff0a6");
+  const after=kids.map(k=>d().nodes.find(n=>n.id===k.id));
+  selected.clear();view={x:200-root.x*1.4,y:300-root.y*1.4,z:1.4};render();await native("snapshot",{name:"mind-fill"});selected=new Set(kids.map(k=>k.id));
+  assert(after.every((k,i)=>textLines(ctx,k).length===lines[i]),"Adding a fill to mind-map text keeps its line breaks");
+  assert(after.every(k=>k.h>=Math.ceil(textLines(ctx,k).length*k.fontSize*1.15+2*textPaddingY(k))),"A filled mind-map node is tall enough for its text and padding");
+  const broken=M.clone(d());for(const k of broken.nodes.filter(n=>n.parent===root.id)){k.w=60;k.h=28;}
+  assert(refitFilledMindText({documents:[{canvas:broken}]})===3&&broken.nodes.filter(n=>n.parent===root.id).every(k=>textLines(ctx,k).length===1),"Filled mind-map text saved too small by older builds is measured again on load");
+  assert(refitFilledMindText({documents:[{canvas:d()}]})===0,"Correctly sized nodes are left alone");
+  styleSelection("fill","transparent");
+  const back=kids.map(k=>d().nodes.find(n=>n.id===k.id));
+  assert(back.every((k,i)=>textLines(ctx,k).length===lines[i]&&M.isText(k)&&k.h===Math.ceil(lines[i]*k.fontSize*1.15+6)),"Removing the fill returns it to compact text");
+}
 assert(!errors.length,"No uncaught errors through editor and presentation interactions");
 return results;

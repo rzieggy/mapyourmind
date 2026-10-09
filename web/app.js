@@ -3140,18 +3140,37 @@ function syncCustomSwatch(holder, value, palette = M.colors) {
   if (/^#[0-9a-f]{6}$/i.test(value || ""))
     holder.querySelector("input").value = value;
 }
+// Before 1.38.1 a fill or outline on mind-map text kept the text's size, so
+// the box was too narrow and short for its wider insets. Measure those once.
+function refitFilledMindText(library) {
+  let fixed = 0;
+  for (const doc of library.documents || []) {
+    let touched = false;
+    for (const n of doc.canvas?.nodes || []) {
+      if (n.kind !== "mind" || !n.fitWidth || n.attachmentTo || M.isText(n)) continue;
+      const before = n.w + "x" + n.h;
+      autoSize(n);
+      if (n.w + "x" + n.h !== before) { fixed++; touched = true; }
+    }
+    if (touched) M.layout(doc.canvas);
+  }
+  return fixed;
+}
 function styleSelection(key, value) {
   mutate(() => {
     for (const n of d().nodes.filter((n) => selected.has(n.id))) {
       if (["fontFamily", "fontSize"].includes(key) && ["image", "sticker"].includes(n.kind)) continue;
       if (key === "stroke" && value === "transparent" && ["text", "sticker"].includes(n.kind)) continue;
+      const wasText = M.isText(n);
       // An image border comes back quiet: thin, solid and clean.
       if (key === "stroke" && n.kind === "image" && n.stroke === "transparent" && value !== "transparent")
         Object.assign(n, { sw: 1, strokeStyle: "solid", sloppiness: 1 });
       n[key] = value;
       // Choosing a colour for a shape that had none should show that colour.
       if (key === "fill" && value !== "transparent" && !n.fillStyle) n.fillStyle = "solid";
-      if (key === "fontSize" || key === "shape" || key === "fontFamily") reflow(n);
+      // A fill or outline turns mind-map text into a box with wider insets (and
+      // back), so it is measured again or its text wraps and spills out.
+      if (key === "fontSize" || key === "shape" || key === "fontFamily" || wasText !== M.isText(n)) reflow(n);
     }
     for (const e of d().edges.filter((e) => selected.has(e.id))) {
       if (
@@ -3895,7 +3914,8 @@ setInterval(async () => {
     loaded = true;
     $("newDoc").disabled=false;
     const migratedFonts = M.migrateFonts(state);
-    if (updateRetention(result.clock) || migratedFonts) changed();
+    const resizedMindNodes = refitFilledMindText(state);
+    if (updateRetention(result.clock) || migratedFonts || resizedMindNodes) changed();
     initDocumentSidebar();
     const startup = state.documents
       .filter((a) => !a.trashedAt)

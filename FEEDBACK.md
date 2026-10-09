@@ -11,6 +11,7 @@ Zieggy's feedback from real use, waiting for a fix. Newest at the bottom. Move a
 
 | # | Fixed in | Note |
 | --- | --- | --- |
+| F22 | 2026-10-09 | Bug: giving mind-map text a fill (or outline) broke its text ("logi/n", text spilling out of the fill). Text-style nodes use 4px insets; a fill makes them a box with 10px insets, but the size was not measured again. `styleSelection` now reflows a node whenever it switches between text and box, and startup re-measures filled mind-map nodes saved too small. |
 | F19 | 2026-10-07 | Folders in the sidebar (new folder, drag in/out, Move to folder, fold, delete keeps documents) and double-click rename for documents and folders. |
 | F21 | 2026-10-06 | Tab/Enter from an older (one-line) rectangle now makes a new three-line rectangle; the old one keeps its size. A rectangle growing past three lines keeps growing up and down evenly so Tab chains stay straight (Zieggy, 2026-10-06). |
 | F20 | 2026-10-06 | Bug: typing in a new mind-map child (or any text) and deleting it all made the field two lines tall. WebKit leaves a placeholder `<br>` in an emptied contenteditable, which was read as a newline. `placeholderBreak` in `web/rich-text.js` now skips it when reading the editor. Covered for mind-map text, rectangles and free text. |
